@@ -53,7 +53,7 @@ from randomizer.Lists.CustomLocations import resetCustomLocations
 from randomizer.Enums.Maps import Maps
 from randomizer.Lists.Item import ItemList
 from randomizer.Lists.Location import SharedMoveLocations, SharedShopLocations, ShopLocationReference
-from randomizer.Lists.Minigame import BarrelMetaData, MinigameRequirements
+from randomizer.Lists.Minigame import MinigameRequirements
 from randomizer.Lists.ShufflableExit import GetLevelShuffledToIndex
 from randomizer.LogicClasses import Sphere, TransitionFront
 from randomizer.Patching import ApplyRandomizer
@@ -202,7 +202,7 @@ def should_skip_location(location, location_obj, spoiler, settings, region):
             or (location.bonusBarrel is MinigameType.HelmBarrelSecond and (settings.helm_barrels == MinigameBarrels.skip or settings.helm_room_bonus_count != HelmBonuses.two))
             or (location.bonusBarrel is MinigameType.TrainingBarrel and settings.training_barrels_minigames == MinigameBarrels.skip)
         ):
-            if not MinigameRequirements[BarrelMetaData[location.id].minigame].logic(spoiler.LogicVariables):
+            if not MinigameRequirements[spoiler.shuffled_barrel_data[location.id].minigame].logic(spoiler.LogicVariables):
                 return True
 
     # Skip hint doors if the wrong Kong
@@ -609,6 +609,11 @@ def VerifyWorld(spoiler: Spoiler) -> bool:
                 Locations.IslesLankyMedal,
                 Locations.IslesTinyMedal,
                 Locations.IslesChunkyMedal,
+                Locations.IslesDonkeyHalfMedal,
+                Locations.IslesDiddyHalfMedal,
+                Locations.IslesLankyHalfMedal,
+                Locations.IslesTinyHalfMedal,
+                Locations.IslesChunkyHalfMedal,
             ]
         ]
     allLocationsReached = len(unreachables) == 0
@@ -946,6 +951,7 @@ def PareWoth(spoiler: Spoiler, PlaythroughLocations: List[Sphere]) -> List[Union
                 Types.Fairy,
                 Types.RainbowCoin,
                 Types.CrateItem,
+                Types.HalfMedal,
                 Types.BoulderItem,
                 Types.Enemies,
             )
@@ -1101,6 +1107,7 @@ def CalculateWothPaths(spoiler: Spoiler, WothLocations: List[Union[Locations, in
             Types.Fairy,
             Types.RainbowCoin,
             Types.CrateItem,
+            Types.HalfMedal,
             Types.Enemies,
         )
     ]
@@ -1941,7 +1948,10 @@ def FillBossLocations(spoiler: Spoiler, placed_types: List[Types], placed_items:
     # Rig the valid_locations for all relevant items to only be able to place things on bosses
     for typ in [x for x in spoiler.settings.shuffled_location_types if x not in placed_types]:  # Shops would already be placed
         # Any item eligible to be on a boss can be on any boss
-        spoiler.settings.valid_locations[typ] = empty_boss_locations
+        if typ in spoiler.settings.valid_locations:
+            empty_boss_local_list = [x for x in spoiler.settings.valid_locations[typ] if x in empty_boss_locations]
+            if len(empty_boss_local_list) > 0:
+                spoiler.settings.valid_locations[typ] = empty_boss_local_list
     # Now we get the full list of items we could place here
     unplaced_items = ItemPool.GetItemsNeedingToBeAssumed(spoiler.settings, placed_types)
     # Checkless can be on bosses, but we need shops in the pool in order to have room to do this reliably
@@ -2386,6 +2396,9 @@ def Fill(spoiler: Spoiler) -> None:
     if Types.CrateItem in spoiler.settings.shuffled_location_types:
         placed_types.append(Types.CrateItem)
         # Crates hold nothing, so leave this one empty
+    if Types.HalfMedal in spoiler.settings.shuffled_location_types:
+        placed_types.append(Types.HalfMedal)
+        # Half medals hold nothing, so leave this one empty
     if Types.BoulderItem in spoiler.settings.shuffled_location_types:
         placed_types.append(Types.BoulderItem)
         # Boulders/Vases/Kegs hold nothing, so leave this one empty
@@ -3815,8 +3828,7 @@ def ShuffleMisc(spoiler: Spoiler) -> None:
         or spoiler.settings.helm_barrels == MinigameBarrels.random
         or spoiler.settings.training_barrels_minigames == MinigameBarrels.random
     ):
-        BarrelShuffle(spoiler.settings)
-        spoiler.UpdateBarrels()
+        spoiler.shuffled_barrel_data = BarrelShuffle(spoiler.settings)
     # CB Shuffle
     if spoiler.settings.cb_rando_enabled:
         ShuffleCBs(spoiler)
@@ -3969,6 +3981,7 @@ def CheckForIncompatibleSettings(settings: Settings) -> None:
         if settings.perma_death or settings.wipe_file_on_death:
             if settings.damage_amount == DamageAmount.quad or settings.damage_amount == DamageAmount.ohko:
                 found_incompatibilities += "Cannot turn on 'Angry Caves' with a damage modifier higher than double damage with Irondonk enabled. "
+    # Skip item pool validation for Archipelago - it handles item placement dynamically
     if not settings.is_valid_item_pool():
         found_incompatibilities += "Item pool is not a valid combination of items and cannot successfully fill the world. "
     if settings.krool_access and Items.HideoutHelmKey in settings.starting_keys_list_selected:

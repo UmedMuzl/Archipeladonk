@@ -50,7 +50,7 @@ from randomizer.Lists.MapsAndExits import GetExitId, GetMapId, RegionMapList
 from randomizer.Lists.ShufflableExit import ShufflableExits
 from randomizer.Lists.Songs import song_data
 from randomizer.Lists.Switches import SwitchData
-from randomizer.Patching.Library.Generic import IsItemSelected, HelmDoorInfo, HelmDoorRandomInfo, DoorItemToBarrierItem, getCompletableBonuses, IsDDMSSelected
+from randomizer.Patching.Library.Generic import IsItemSelected, HelmDoorInfo, HelmDoorRandomInfo, DoorItemToBarrierItem, getCompletableBonuses, IsDDMSSelected, MEDAL_PROGRESSIVE_RATIOS
 from randomizer.Prices import CompleteVanillaPrices, RandomizePrices, VanillaPrices
 from randomizer.SettingStrings import encrypt_settings_string_enum
 from randomizer.ShuffleBosses import (
@@ -92,10 +92,9 @@ class Settings:
             self.generate_spoilerlog = False
         self.random = random
         self.seed = str(self.seed) + self.__hash + str(json.dumps(form_data))
+        self.ice_trap_count = 0
         if not self.archipelago:
             self.set_seed()
-        else:
-            self.ice_trap_count = 0
         self.seed_hash = [self.random.randint(0, 9) for i in range(5)]
         self.krool_keys_required = []
         self.starting_key_list = []
@@ -570,6 +569,7 @@ class Settings:
         self.music_minoritems_randomized = False
         self.music_events_randomized = False
         self.random_music = False
+        self.music_rando_enabled = False
         self.music_is_custom = False
         self.music_vanilla_locations = False
         self.music_disable_reverb = False
@@ -713,7 +713,9 @@ class Settings:
         self.medal_jetpac_behavior = RandomRequirement.pre_selected
         self.pearl_mermaid_behavior = RandomRequirement.pre_selected
         self.fairy_queen_behavior = RandomRequirement.pre_selected
-        self.cb_medal_behavior = RandomRequirement.pre_selected
+        self.cb_medal_behavior = RandomRequirement.pre_selected  # Deprecated
+        self.cb_medal_behavior_new = CBRequirement.pre_selected
+        self.medal_cb_req_level = [75] * 8
         self.bananaport_rando = BananaportRando.off
         self.activate_all_bananaports = ActivateAllBananaports.off
         self.shop_indicator = False
@@ -1116,9 +1118,9 @@ class Settings:
                 RandomRequirement.hard_random: (14, 20),
             },
             "cbs": {
-                RandomRequirement.easy_random: (1, 30),
-                RandomRequirement.medium_random: (31, 50),
-                RandomRequirement.hard_random: (51, 100),
+                CBRequirement.easy_random: (1, 30),
+                CBRequirement.medium_random: (31, 50),
+                CBRequirement.hard_random: (51, 100),
             },
         }
         if self.pearl_mermaid_behavior != RandomRequirement.pre_selected:
@@ -1133,10 +1135,20 @@ class Settings:
             min_bound = req_data["fairies"][self.fairy_queen_behavior][0]
             max_bound = req_data["fairies"][self.fairy_queen_behavior][1]
             self.rareware_gb_fairies = self.random.randint(min_bound, max_bound)
-        if self.cb_medal_behavior != RandomRequirement.pre_selected:
-            min_bound = req_data["cbs"][self.cb_medal_behavior][0]
-            max_bound = req_data["cbs"][self.cb_medal_behavior][1]
-            self.medal_cb_req = self.random.randint(min_bound, max_bound)
+        if self.cb_medal_behavior_new == CBRequirement.pre_selected:
+            self.medal_cb_req_level = [self.medal_cb_req] * 8
+        elif self.cb_medal_behavior_new == CBRequirement.progressive:
+            ratios = MEDAL_PROGRESSIVE_RATIOS.copy()
+            if not IsItemSelected(self.cb_rando_enabled, self.cb_rando_list_selected, Levels.DKIsles):
+                ratios[6] = 1
+            allocation = [int(self.medal_cb_req * x) for x in ratios]
+            self.random.shuffle(allocation)
+            self.medal_cb_req_level = allocation.copy()
+        else:
+            min_bound = req_data["cbs"][self.cb_medal_behavior_new][0]
+            max_bound = req_data["cbs"][self.cb_medal_behavior_new][1]
+            req = self.random.randint(min_bound, max_bound)
+            self.medal_cb_req_level = [req] * 8
 
         # If water is lava, then Instrument Upgrades are considered important for the purposes of getting 3rd Melon
         if IsDDMSSelected(self.hard_mode_selected, HardModeSelected.water_is_lava):
@@ -1405,6 +1417,8 @@ class Settings:
                 ItemRandoListSelected.dummyitem_crateitem: (Types.CrateItem, Types.CrateItem, False),
                 ItemRandoListSelected.trainingmoves: (Types.TrainingBarrel, Types.TrainingBarrel, False),
                 ItemRandoListSelected.trainingbarrels: (Types.TrainingBarrel, Types.TrainingBarrel, True),
+                ItemRandoListSelected.halfmedal: (Types.HalfMedal, Types.HalfMedal, True),
+                ItemRandoListSelected.dummyitem_halfmedal: (Types.HalfMedal, Types.HalfMedal, False),
             }
             for selector_value, data in item_ui_pairing.items():
                 self.shuffled_check_allowances[data[0]] = []
@@ -1423,6 +1437,7 @@ class Settings:
                 ItemRandoListSelected.dummyitem_enemies,
                 ItemRandoListSelected.dummyitem_boulderitem,
                 ItemRandoListSelected.dummyitem_crateitem,
+                ItemRandoListSelected.dummyitem_halfmedal,
             ]
             dummy_location_types = [Types.ToughBanana, Types.HelmKey, Types.HelmMedal]
             self.item_search = [
@@ -2214,6 +2229,11 @@ class Settings:
             spoiler.LocationList[Locations.IslesLankyMedal].inaccessible = True
             spoiler.LocationList[Locations.IslesTinyMedal].inaccessible = True
             spoiler.LocationList[Locations.IslesChunkyMedal].inaccessible = True
+            spoiler.LocationList[Locations.IslesDonkeyHalfMedal].inaccessible = True
+            spoiler.LocationList[Locations.IslesDiddyHalfMedal].inaccessible = True
+            spoiler.LocationList[Locations.IslesLankyHalfMedal].inaccessible = True
+            spoiler.LocationList[Locations.IslesTinyHalfMedal].inaccessible = True
+            spoiler.LocationList[Locations.IslesChunkyHalfMedal].inaccessible = True
 
         for location_id in ProgressiveHintLocations:
             spoiler.LocationList[location_id].inaccessible = self.progressive_hint_item == ProgressiveHintItem.off
@@ -2379,14 +2399,7 @@ class Settings:
                 # Blueprints are banned from Key, Crown, Fairy and Rainbow Coin Locations
                 blueprintValidTypes = [typ for typ in self.shuffled_location_types if typ not in (Types.Crown, Types.Key, Types.Fairy, Types.RainbowCoin, Types.Kong)]
                 # These locations do not have a set Kong assigned to them and can't have blueprints
-                badBPLocations = (
-                    Locations.IslesDonkeyJapesRock,
-                    Locations.JapesDonkeyFrontofCage,
-                    Locations.JapesDonkeyFreeDiddy,
-                    Locations.AztecDiddyFreeTiny,
-                    Locations.AztecDonkeyFreeLanky,
-                    Locations.FactoryLankyFreeChunky,
-                )
+                badBPLocations = (Locations.IslesDonkeyJapesRock,)
                 blueprintLocations = [location for location in shuffledNonMoveLocations if location not in badBPLocations and spoiler.LocationList[location].type in blueprintValidTypes]
                 self.valid_locations[Types.Blueprint] = {}
                 self.valid_locations[Types.Blueprint][Kongs.donkey] = [location for location in blueprintLocations if spoiler.LocationList[location].kong == Kongs.donkey]
@@ -2428,7 +2441,7 @@ class Settings:
                 self.valid_locations[Types.Snide] = [x for x in shuffledLocationsShopOwner.copy() if spoiler.LocationList[x].level != Levels.HideoutHelm]
             if Types.RainbowCoin in self.shuffled_location_types:
                 self.valid_locations[Types.RainbowCoin] = [
-                    x for x in fairyBannedLocations if spoiler.LocationList[x].type not in (Types.Shop, Types.TrainingBarrel, Types.Shockwave, Types.PreGivenMove, Types.Climbing)
+                    x for x in fairyBannedLocations if spoiler.LocationList[x].type not in (Types.Shop, Types.TrainingBarrel, Types.Shockwave, Types.PreGivenMove, Types.Climbing, Types.Kong)
                 ]
             if Types.FakeItem in self.shuffled_location_types:
                 bad_fake_locations = (
@@ -2738,6 +2751,7 @@ class Settings:
             ItemRandoListSelected.bean: [1, 0],
             ItemRandoListSelected.anthillreward: [0, 1],
             ItemRandoListSelected.crateitem: [0, 13],
+            ItemRandoListSelected.halfmedal: [0, 40],
             ItemRandoListSelected.shopowners: [0, 0],  # Max is 4, calculated during post-processing
             ItemRandoListSelected.hint: [35, 0],
             ItemRandoListSelected.wrinkly: [0, 35],

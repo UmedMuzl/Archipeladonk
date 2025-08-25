@@ -124,25 +124,25 @@ class SlowTrapWeight(BaseTrapWeight):
 class DisableAWeight(BaseTrapWeight):
     """Likelihood of receiving a trap which disables your A button."""
 
-    display_name = "Disable A Trap"
+    display_name = "Disable A Trap Weight"
 
 
 class DisableBWeight(BaseTrapWeight):
     """Likelihood of receiving a trap which disables your B button."""
 
-    display_name = "Disable B Trap"
+    display_name = "Disable B Trap Weight"
 
 
 class DisableZWeight(BaseTrapWeight):
     """Likelihood of receiving a trap which disables your Z button."""
 
-    display_name = "Disable Z Trap"
+    display_name = "Disable Z Trap Weight"
 
 
 class DisableCWeight(BaseTrapWeight):
     """Likelihood of receiving a trap which disables your C buttons."""
 
-    display_name = "Disable C Trap"
+    display_name = "Disable C Trap Weight"
 
 
 class KroolPhaseCount(Range):
@@ -170,6 +170,26 @@ class MedalColorBananaRequirement(Range):
     range_start = 1
     range_end = 100
     default = 40
+
+
+class MedalDistribution(Choice):
+    """Determines how the CB requirement is determined.
+
+    Options:
+    pre_selected: Player chooses a specific value for CB requirements
+    easy_random: Random values are chosen with an easier progression curve
+    medium_random: Random values are chosen with a medium progression curve
+    hard_random: Random values are chosen with a hard progression curve
+    progressive: CB requirements increase progressively through levels depending on your medal_cb_requirement.
+    """
+
+    display_name = "CB Requirement Setting"
+    option_pre_selected = 0
+    option_easy_random = 1
+    option_medium_random = 2
+    option_hard_random = 3
+    option_progressive = 4
+    default = 0
 
 
 class RarewareGBRequirement(Range):
@@ -305,6 +325,15 @@ class TagLink(Toggle):
     display_name = "Tag Link"
 
 
+class TrapLink(Toggle):
+    """Determines if the Trap Link is enabled.
+
+    If enabled, your received Traps will link to other players with Trap Link enabled, and their received traps will link to you
+    """
+
+    display_name = "Trap Link"
+
+
 class MirrorMode(Toggle):
     """Determines whether the game will be horizontally Mirrored."""
 
@@ -394,14 +423,14 @@ class HintItemRandomization(Toggle):
 class RandomizeBlockers(Toggle):
     """Determines if B. Locker values are randomized."""
 
-    display_name = "Randomizer B. Lockers"
+    display_name = "Randomize B. Lockers"
     default = True
 
 
 class MaximumBLocker(Range):
     """Determines the Maximum Value for B. Lockers if Randomize B.Lockers are enabled."""
 
-    display_name = "Randomizer B. Lockers"
+    display_name = "Maximum B. Locker"
     range_start = 0
     range_end = 201
     default = 64
@@ -532,10 +561,10 @@ class ShopKeepers(Toggle):
     display_name = "Shop Keepers in Pool"
 
 
-class Key8Helm(DefaultOnToggle):
-    """Determines if Key 8 is randomized within the multiworld."""
+class HelmKeyLock(DefaultOnToggle):
+    """Determines if a key will be locked at the end of Helm."""
 
-    display_name = "Add Key 8 to Pool"
+    display_name = "Lock Helm Key"
 
 
 class ShuffleHelmLevel(Toggle):
@@ -545,9 +574,25 @@ class ShuffleHelmLevel(Toggle):
 
 
 class ShopkeeperHints(DefaultOnToggle):
-    """Determines if Entering a shop with Shopkeepers in the pool will give you a hint on where the shopkeeper is."""
+    """Determines if entering a shop with Shopkeepers in the pool will give you a hint on where the shopkeeper is."""
 
     display_name = "Shopkeeper Hint"
+
+
+class HintStyle(Choice):
+    """Choose the style of Wrinkly hints you'd like to play with. These do not affect shopkeeper or microhints.
+
+    - off: No in-game hints at all.
+    - no_woth: Hints can tell you about your K. Rool phases, and directly hint important items and hard locations.
+    - woth: Same as no_woth, but Way of the Hoard hints can appear, which will tell you a location is required but not what item is at that location. Increases gen time significantly, especially in larger multiworlds.
+    """
+
+    display_name = "Hint Style"
+
+    option_off = 0
+    option_no_woth = 1
+    option_woth = 2
+    default = 1
 
 
 class MicroHints(Choice):
@@ -566,6 +611,222 @@ class MicroHints(Choice):
     default = 2
 
 
+class HalfMedals(Toggle):
+    """Determines if Half Medals are added to the pool.
+
+    If medal_cb_req is set to 50, you will get a check at 25 Colored Bananas.
+    """
+
+    display_name = "Half Medals in Pool"
+
+    default = False
+
+
+class ShuffledBonusBarrels(OptionList):
+    """Determines which minigames are shuffled into the barrel pool.
+
+    Valid Keys:
+    "batty_barrel_bandit"
+    "big_bug_bash"
+    "busy_barrel_barrage"
+    "mad_maze_maul"
+    "minecart_mayhem"
+    "beaver_bother"
+    "teetering_turtle_trouble"
+    "stealthy_snoop"
+    "stash_snatch"
+    "splish_splash_salvage"
+    "speedy_swing_sortie"
+    "krazy_kong_klamour"
+    "searchlight_seek"
+    "kremling_kosh"
+    "peril_path_panic"
+    "helm_minigames"
+    "arenas"
+    "training_minigames"
+    "arcade"
+    """
+
+    display_name = "Shuffled Bonus Barrels"
+
+    valid_keys = {
+        "batty_barrel_bandit",
+        "big_bug_bash",
+        "busy_barrel_barrage",
+        "mad_maze_maul",
+        "minecart_mayhem",
+        "beaver_bother",
+        "teetering_turtle_trouble",
+        "stealthy_snoop",
+        "stash_snatch",
+        "splish_splash_salvage",
+        "speedy_swing_sortie",
+        "krazy_kong_klamour",
+        "searchlight_seek",
+        "kremling_kosh",
+        "peril_path_panic",
+        "helm_minigames",
+        "arenas",
+        "training_minigames",
+        "arcade",
+    }
+
+    default = [
+        "batty_barrel_bandit",
+        "big_bug_bash",
+        "busy_barrel_barrage",
+        "mad_maze_maul",
+        "minecart_mayhem",
+        "beaver_bother",
+        "teetering_turtle_trouble",
+        "stealthy_snoop",
+        "stash_snatch",
+        "splish_splash_salvage",
+        "speedy_swing_sortie",
+        "krazy_kong_klamour",
+        "searchlight_seek",
+        "kremling_kosh",
+        "peril_path_panic",
+        "helm_minigames",
+        "arenas",
+        "training_minigames",
+        "arcade",
+    ]
+
+
+class HardMinigames(Toggle):
+    """Determines if hard minigames are shuffled into the barrel pool."""
+
+    display_name = "Hard Minigames"
+
+
+class AutoCompleteBonusBarrels(Toggle):
+    """If turned on, bonus barrels will instantly spawn their reward instead of requiring a minigame to complete.
+
+    This option does NOT autocomplete Helm barrels! Use the helm_room_bonus_count option.
+    """
+
+    display_name = "Auto Complete Bonus Barrels"
+
+
+class HelmRoomBonusCount(Range):
+    """Determines how many bonus barrels need to be done in each Helm room.
+
+    If set to 0, there will be no bonus barrels and Blast-O-Matic sections will turn off immediately upon playing the instrument pad to open the room.
+    """
+
+    display_name = "Helm Room Bonus Count"
+
+    range_start = 0
+    range_end = 2
+    default = 0
+
+
+class ShuffledBonusBarrels(OptionList):
+    """Determines which minigames are shuffled into the barrel pool.
+
+    Valid Keys:
+    "batty_barrel_bandit"
+    "big_bug_bash"
+    "busy_barrel_barrage"
+    "mad_maze_maul"
+    "minecart_mayhem"
+    "beaver_bother"
+    "teetering_turtle_trouble"
+    "stealthy_snoop"
+    "stash_snatch"
+    "splish_splash_salvage"
+    "speedy_swing_sortie"
+    "krazy_kong_klamour"
+    "searchlight_seek"
+    "kremling_kosh"
+    "peril_path_panic"
+    "helm_minigames"
+    "arenas"
+    "training_minigames"
+    "arcade"
+    """
+
+    display_name = "Shuffled Bonus Barrels"
+
+    valid_keys = {
+        "batty_barrel_bandit",
+        "big_bug_bash",
+        "busy_barrel_barrage",
+        "mad_maze_maul",
+        "minecart_mayhem",
+        "beaver_bother",
+        "teetering_turtle_trouble",
+        "stealthy_snoop",
+        "stash_snatch",
+        "splish_splash_salvage",
+        "speedy_swing_sortie",
+        "krazy_kong_klamour",
+        "searchlight_seek",
+        "kremling_kosh",
+        "peril_path_panic",
+        "helm_minigames",
+        "arenas",
+        "training_minigames",
+        "arcade",
+    }
+
+    default = [
+        "batty_barrel_bandit",
+        "big_bug_bash",
+        "busy_barrel_barrage",
+        "mad_maze_maul",
+        "minecart_mayhem",
+        "beaver_bother",
+        "teetering_turtle_trouble",
+        "stealthy_snoop",
+        "stash_snatch",
+        "splish_splash_salvage",
+        "speedy_swing_sortie",
+        "krazy_kong_klamour",
+        "searchlight_seek",
+        "kremling_kosh",
+        "peril_path_panic",
+        "helm_minigames",
+        "arenas",
+        "training_minigames",
+        "arcade",
+    ]
+
+
+class HardMinigames(Toggle):
+    """Determines if hard minigames are shuffled into the barrel pool."""
+
+    display_name = "Hard Minigames"
+
+
+class AutoCompleteBonusBarrels(Toggle):
+    """If turned on, bonus barrels will instantly spawn their reward instead of requiring a minigame to complete.
+
+    This option does NOT autocomplete Helm barrels! Use the helm_room_bonus_count option.
+    """
+
+    display_name = "Auto Complete Bonus Barrels"
+
+
+class HelmRoomBonusCount(Range):
+    """Determines how many bonus barrels need to be done in each Helm room.
+
+    If set to 0, there will be no bonus barrels and Blast-O-Matic sections will turn off immediately upon playing the instrument pad to open the room.
+    """
+
+    display_name = "Helm Room Bonus Count"
+
+    range_start = 0
+    range_end = 2
+    default = 0
+
+class SmallerShops(Toggle):
+    """If enabled, shops would have a max of 3 items to sell."""
+
+    default = True
+    display_name = "Smaller Shops"
+
 @dataclass
 class DK64Options(PerGameCommonOptions):
     """Options for DK64R."""
@@ -573,15 +834,17 @@ class DK64Options(PerGameCommonOptions):
     death_link: DeathLink
     ring_link: RingLink
     tag_link: TagLink
+    trap_link: TrapLink
     goal: Goal
     krool_key_count: KeysRequiredToBeatKrool
-    key8_lock: Key8Helm
+    helm_key_lock: HelmKeyLock
     shuffle_helm_level_order: ShuffleHelmLevel
     krool_phase_count: KroolPhaseCount
     helm_phase_count: HelmPhaseCount
     krool_in_boss_pool: KroolInBossPool
     remove_barriers_selected: RemoveBarriers
     medal_cb_req: MedalColorBananaRequirement
+    medal_distribution: MedalDistribution
     mermaid_gb_pearls: MermaidRequirement
     medal_requirement: JetpacRequirement
     rareware_gb_fairies: RarewareGBRequirement
@@ -606,6 +869,7 @@ class DK64Options(PerGameCommonOptions):
     shopowners_in_pool: ShopKeepers
     logic_type: LogicType
     tricks_selected: TricksSelected
+    half_medals_in_pool: HalfMedals
     glitches_selected: GlitchesSelected
     hard_mode: HardModeEnabled
     hard_mode_selected: HardModeSelected
@@ -619,11 +883,17 @@ class DK64Options(PerGameCommonOptions):
     bubble_trap_weight: BubbleTrapWeight
     reverse_trap_weight: ReverseTrapWeight
     slow_trap_weight: SlowTrapWeight
-    disable_a_trap: DisableAWeight
-    disable_b_trap: DisableBWeight
-    disable_c_trap: DisableCWeight
-    disable_z_trap: DisableZWeight
+    disable_a_trap_weight: DisableAWeight
+    disable_b_trap_weight: DisableBWeight
+    disable_c_trap_weight: DisableCWeight
+    disable_z_trap_weight: DisableZWeight
     receive_notifications: ReceiveNotifications
+    hint_style: HintStyle
+    shuffled_bonus_barrels: ShuffledBonusBarrels
+    hard_minigames: HardMinigames
+    auto_complete_bonus_barrels: AutoCompleteBonusBarrels
+    helm_room_bonus_count: HelmRoomBonusCount
+    smaller_shops: SmallerShops
 
 
 dk64_option_groups: List[OptionGroup] = [
@@ -660,12 +930,14 @@ dk64_option_groups: List[OptionGroup] = [
         [
             StartingKongCount,
             StartingMoveCount,
-            Key8Helm,
+            HelmKeyLock,
             ClimbingShuffle,
             ShopKeepers,
             BouldersInPool,
             Dropsanity,
             HintItemRandomization,
+            HalfMedals,
+            SmallerShops,
         ],
     ),
     OptionGroup(
@@ -684,9 +956,19 @@ dk64_option_groups: List[OptionGroup] = [
             TricksSelected,
             GlitchesSelected,
             MedalColorBananaRequirement,
+            MedalDistribution,
             MermaidRequirement,
             RarewareGBRequirement,
             JetpacRequirement,
+        ],
+    ),
+    OptionGroup(
+        "Bonus Barrels",
+        [
+            ShuffledBonusBarrels,
+            HardMinigames,
+            AutoCompleteBonusBarrels,
+            HelmRoomBonusCount,
         ],
     ),
     OptionGroup(
@@ -700,6 +982,7 @@ dk64_option_groups: List[OptionGroup] = [
     OptionGroup(
         "Hints",
         [
+            HintStyle,
             ShopkeeperHints,
             MicroHints,
         ],
@@ -722,6 +1005,7 @@ dk64_option_groups: List[OptionGroup] = [
         [
             TagLink,
             RingLink,
+            TrapLink,
             DeathLink,
         ],
     ),
