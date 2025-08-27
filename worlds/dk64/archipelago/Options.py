@@ -722,110 +722,12 @@ class HelmRoomBonusCount(Range):
     default = 0
 
 
-class ShuffledBonusBarrels(OptionList):
-    """Determines which minigames are shuffled into the barrel pool.
-
-    Valid Keys:
-    "batty_barrel_bandit"
-    "big_bug_bash"
-    "busy_barrel_barrage"
-    "mad_maze_maul"
-    "minecart_mayhem"
-    "beaver_bother"
-    "teetering_turtle_trouble"
-    "stealthy_snoop"
-    "stash_snatch"
-    "splish_splash_salvage"
-    "speedy_swing_sortie"
-    "krazy_kong_klamour"
-    "searchlight_seek"
-    "kremling_kosh"
-    "peril_path_panic"
-    "helm_minigames"
-    "arenas"
-    "training_minigames"
-    "arcade"
-    """
-
-    display_name = "Shuffled Bonus Barrels"
-
-    valid_keys = {
-        "batty_barrel_bandit",
-        "big_bug_bash",
-        "busy_barrel_barrage",
-        "mad_maze_maul",
-        "minecart_mayhem",
-        "beaver_bother",
-        "teetering_turtle_trouble",
-        "stealthy_snoop",
-        "stash_snatch",
-        "splish_splash_salvage",
-        "speedy_swing_sortie",
-        "krazy_kong_klamour",
-        "searchlight_seek",
-        "kremling_kosh",
-        "peril_path_panic",
-        "helm_minigames",
-        "arenas",
-        "training_minigames",
-        "arcade",
-    }
-
-    default = [
-        "batty_barrel_bandit",
-        "big_bug_bash",
-        "busy_barrel_barrage",
-        "mad_maze_maul",
-        "minecart_mayhem",
-        "beaver_bother",
-        "teetering_turtle_trouble",
-        "stealthy_snoop",
-        "stash_snatch",
-        "splish_splash_salvage",
-        "speedy_swing_sortie",
-        "krazy_kong_klamour",
-        "searchlight_seek",
-        "kremling_kosh",
-        "peril_path_panic",
-        "helm_minigames",
-        "arenas",
-        "training_minigames",
-        "arcade",
-    ]
-
-
-class HardMinigames(Toggle):
-    """Determines if hard minigames are shuffled into the barrel pool."""
-
-    display_name = "Hard Minigames"
-
-
-class AutoCompleteBonusBarrels(Toggle):
-    """If turned on, bonus barrels will instantly spawn their reward instead of requiring a minigame to complete.
-
-    This option does NOT autocomplete Helm barrels! Use the helm_room_bonus_count option.
-    """
-
-    display_name = "Auto Complete Bonus Barrels"
-
-
-class HelmRoomBonusCount(Range):
-    """Determines how many bonus barrels need to be done in each Helm room.
-
-    If set to 0, there will be no bonus barrels and Blast-O-Matic sections will turn off immediately upon playing the instrument pad to open the room.
-    """
-
-    display_name = "Helm Room Bonus Count"
-
-    range_start = 0
-    range_end = 2
-    default = 0
-
 class SmallerShops(Toggle):
     """If enabled, shops would have a max of 3 items to sell."""
 
     default = True
     display_name = "Smaller Shops"
+
 
 @dataclass
 class DK64Options(PerGameCommonOptions):
