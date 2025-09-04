@@ -745,7 +745,7 @@ def VerifyWorldWithWorstCoinUsage(spoiler: Spoiler) -> bool:
                 locationsToPurchase.append(shopLocationId)
                 anythingAddedToPurchaseOrder = True
             # These items will never practically give progression. Helm doors are not really relevant here, as any theoretical coin lock will happen WELL before this point.
-            if shopItem in (Items.BattleCrown, Items.FillerCrown, Items.IceTrapBubble, Items.RarewareCoin, Items.NintendoCoin):
+            if shopItem in (Items.BattleCrown, Items.FillerCrown, Items.RarewareCoin, Items.NintendoCoin) or ItemList[shopItem].type == Types.FakeItem:
                 locationsToPurchase.append(shopLocationId)
                 anythingAddedToPurchaseOrder = True
         # If we added anything to the purchase order, short-circuit back to the top of the loop and keep going with a (hopefully) greatly expanded purchase list
@@ -2492,6 +2492,9 @@ def FillTrainingMoves(spoiler: Spoiler, preplacedMoves: List[Items]):
         # We can expect that all locations in this region are starting move locations, Training Barrels, or starting shopkeeper locations
         for locationLogic in spoiler.RegionList[Regions.GameStart].locations:
             location = spoiler.LocationList[locationLogic.id]
+            if location.type == Types.TrainingBarrel and spoiler.settings.training_barrels == TrainingBarrels.normal:
+                # Patching expects these locations to be empty to fill in all the training moves
+                continue
             if location.item is None and location.type not in (Types.Cranky, Types.Funky, Types.Candy, Types.Snide):  # Don't put moves in shopkeeper locations!
                 placedMove = movesToPlace.pop()
                 location.inaccessible = False

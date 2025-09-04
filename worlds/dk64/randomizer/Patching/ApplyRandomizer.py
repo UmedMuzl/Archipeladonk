@@ -44,7 +44,7 @@ from randomizer.Patching.BananaPortRando import randomize_bananaport, move_banan
 from randomizer.Patching.BarrelRando import randomize_barrels
 from randomizer.Patching.CoinPlacer import randomize_coins
 from randomizer.Patching.Cosmetics.TextRando import writeBootMessages
-from randomizer.Patching.Cosmetics.Puzzles import updateMillLeverTexture, updateCryptLeverTexture, updateDiddyDoors
+from randomizer.Patching.Cosmetics.Puzzles import updateMillLeverTexture, updateCryptLeverTexture, updateDiddyDoors, updateHelmFaces
 from randomizer.Patching.CosmeticColors import (
     applyHelmDoorCosmetics,
     applyKongModelSwaps,
@@ -82,7 +82,6 @@ from randomizer.Patching.ShopRandomizer import ApplyShopRandomizer
 from randomizer.Patching.UpdateHints import (
     PushHints,
     replaceIngameText,
-    wipeHints,
     PushItemLocations,
     PushHelpfulHints,
     PushHintTiedRegions,
@@ -626,6 +625,11 @@ def patching_response(spoiler):
         for x in range(7):  # Shouldn't need index 8 since Helm has no slam switches in it
             ROM_COPY.seek(sav + 0x104 + x)
             ROM_COPY.write(spoiler.settings.switch_allocation[x])
+    # Dartboard order
+    ROM_COPY.seek(sav + 0x173)
+    for x in range(6):
+        ROM_COPY.writeMultipleBytes(spoiler.settings.dartboard_order[x], 1)
+
     ROM_COPY.seek(sav + 0x060)
     for x in spoiler.settings.medal_cb_req_level:
         ROM_COPY.writeMultipleBytes(x, 1)
@@ -690,14 +694,13 @@ def patching_response(spoiler):
     PushItemLocations(spoiler, ROM_COPY)
 
     if spoiler.settings.wrinkly_hints != WrinklyHints.off:
-        wipeHints()
         PushHints(spoiler, ROM_COPY)
         if spoiler.settings.dim_solved_hints:
             PushHelpfulHints(spoiler, ROM_COPY)
     if Types.Hint in spoiler.settings.shuffled_location_types and spoiler.settings.progressive_hint_item == ProgressiveHintItem.off:
         PushHintTiedRegions(spoiler, ROM_COPY)
 
-    writeBootMessages(ROM_COPY, spoiler.settings.random)
+    writeBootMessages(ROM_COPY, spoiler)
     enableTriggerText(spoiler, ROM_COPY)
     shortenCastleMinecart(spoiler, ROM_COPY)
     alterStoryCutsceneWarps(spoiler, ROM_COPY)
@@ -709,6 +712,7 @@ def patching_response(spoiler):
         updateDiddyDoors(spoiler.settings, ROM_COPY)
         applyHelmDoorCosmetics(spoiler.settings, ROM_COPY)
         applyKongModelSwaps(spoiler.settings, ROM_COPY)
+        updateHelmFaces(spoiler.settings, ROM_COPY)
 
         patchAssembly(ROM_COPY, spoiler)
         ApplyMirrorMode(spoiler.settings, ROM_COPY)

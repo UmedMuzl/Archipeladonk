@@ -145,6 +145,24 @@ class DisableCWeight(BaseTrapWeight):
     display_name = "Disable C Trap Weight"
 
 
+class GetOutTrapWeight(BaseTrapWeight):
+    """Likelihood of receiving a trap which tells you to Get Out."""
+
+    display_name = "Get Out Trap Weight"
+
+
+class DryTrapWeight(BaseTrapWeight):
+    """Likelihood of receiving a trap which removes all of your consumables."""
+
+    display_name = "Dry Trap Weight"
+
+
+class FlipTrapWeight(BaseTrapWeight):
+    """Likelihood of receiving a trap which flips the camera."""
+
+    display_name = "Flip Trap Weight"
+
+
 class KroolPhaseCount(Range):
     """Pick how many phases are in the final battle against K. Rool."""
 
@@ -729,6 +747,43 @@ class SmallerShops(Toggle):
     display_name = "Smaller Shops"
 
 
+class HardBosses(OptionList):
+    """Determines which bosses are harder.
+
+    Valid Keys:
+    "fast_mad_jack": Mad Jack will move at quantum speeds.
+    "alternative_mad_jack_kongs": Logic can expect Donkey, Chunky, or Tiny without twirl to fight Mad Jack.
+    "pufftoss_star_rando": The stars in the Pufftoss fight are now in random locations.
+    "pufftoss_star_raised": The stars in the Pufftoss fight are now slightly raised to require you to jump to activate the stars.
+    "kut_out_phase_rando": Kutout phases are now in random order and also a chance to see the secret 4th phase.
+    "k_rool_toes_rando": The toes in Tiny phase K. Rool now attack in a random order.
+    "beta_lanky_phase": K. Rool is now distracted by shooting a balloon rather than playing an instrument.
+    """
+
+    display_name = "Hard Bosses"
+
+    valid_keys: {"fast_mad_jack", "alternative_mad_jack_kongs", "pufftoss_star_rando", "pufftoss_star_raised", "kut_out_phase_rando", "k_rool_toes_rando", "beta_lanky_phase"}
+
+
+class PuzzleRando(Choice):
+    """Determines the difficulty of puzzle randomization.
+
+    off: Puzzle solutions are NOT randomized.
+    easy: Easy boundaries.
+    medium: Medium boundaries.
+    hard: Hard boundaries, Castle Car Race is randomized.
+    chaos: Any value in the easy, medium, or hard bounds.
+    """
+
+    display_name = "Puzzle Randomization"
+    option_off = 0
+    option_easy = 1
+    option_medium = 2
+    option_hard = 3
+    option_chaos = 4
+    default = 0
+
+
 @dataclass
 class DK64Options(PerGameCommonOptions):
     """Options for DK64R."""
@@ -748,7 +803,7 @@ class DK64Options(PerGameCommonOptions):
     medal_cb_req: MedalColorBananaRequirement
     medal_distribution: MedalDistribution
     mermaid_gb_pearls: MermaidRequirement
-    medal_requirement: JetpacRequirement
+    jetpac_requirement: JetpacRequirement
     rareware_gb_fairies: RarewareGBRequirement
     randomize_blocker_required_amounts: RandomizeBlockers
     blocker_max: MaximumBLocker
@@ -789,6 +844,9 @@ class DK64Options(PerGameCommonOptions):
     disable_b_trap_weight: DisableBWeight
     disable_c_trap_weight: DisableCWeight
     disable_z_trap_weight: DisableZWeight
+    get_out_trap_weight: GetOutTrapWeight
+    dry_trap_weight: DryTrapWeight
+    flip_trap_weight: FlipTrapWeight
     receive_notifications: ReceiveNotifications
     hint_style: HintStyle
     shuffled_bonus_barrels: ShuffledBonusBarrels
@@ -796,6 +854,8 @@ class DK64Options(PerGameCommonOptions):
     auto_complete_bonus_barrels: AutoCompleteBonusBarrels
     helm_room_bonus_count: HelmRoomBonusCount
     smaller_shops: SmallerShops
+    harder_bosses: HardBosses
+    puzzle_rando: PuzzleRando
 
 
 dk64_option_groups: List[OptionGroup] = [
@@ -862,6 +922,7 @@ dk64_option_groups: List[OptionGroup] = [
             MermaidRequirement,
             RarewareGBRequirement,
             JetpacRequirement,
+            PuzzleRando,
         ],
     ),
     OptionGroup(
@@ -878,6 +939,7 @@ dk64_option_groups: List[OptionGroup] = [
         [
             HardModeEnabled,
             HardModeSelected,
+            HardBosses,
             MirrorMode,
         ],
     ),
@@ -900,6 +962,9 @@ dk64_option_groups: List[OptionGroup] = [
             DisableBWeight,
             DisableCWeight,
             DisableZWeight,
+            GetOutTrapWeight,
+            DryTrapWeight,
+            FlipTrapWeight,
         ],
     ),
     OptionGroup(

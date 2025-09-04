@@ -164,6 +164,7 @@ if baseclasses_loaded:
         CBRequirement,
         MinigamesListSelected,
         HelmBonuses,
+        HardBossesSelected,
     )
     from randomizer.Enums.Switches import Switches
     from randomizer.Enums.SwitchTypes import SwitchType
@@ -578,12 +579,16 @@ if baseclasses_loaded:
         # with open("donklocations.txt", "w") as f:
         #     print(location_name_to_id, file=f)
 
+        # with open("donkitems.txt", "w") as f:
+        #     print(item_name_to_id, file=f)
+
         web = DK64Web()
 
         def __init__(self, multiworld: MultiWorld, player: int):
             """Initialize the DK64 world."""
             self.rom_name_available_event = threading.Event()
             self.hint_data_available = threading.Event()
+            self.hint_compilation_complete = threading.Event()
             super().__init__(multiworld, player)
 
         @classmethod
@@ -640,8 +645,8 @@ if baseclasses_loaded:
             if self.options.medal_distribution.value == 0:  # pre_selected
                 settings_dict["medal_cb_req"] = self.options.medal_cb_req.value
             elif self.options.medal_distribution.value == 4:  # progressive
-                settings_dict["medal_cb_req"] = self.options.medal_requirement.value
-            settings_dict["medal_requirement"] = self.options.medal_requirement.value
+                settings_dict["medal_cb_req"] = self.options.medal_cb_req.value
+            settings_dict["medal_requirement"] = self.options.jetpac_requirement.value
             settings_dict["rareware_gb_fairies"] = self.options.rareware_gb_fairies.value
             settings_dict["mirror_mode"] = self.options.mirror_mode.value
             settings_dict["hard_mode"] = self.options.hard_mode.value
@@ -650,6 +655,7 @@ if baseclasses_loaded:
             settings_dict["mermaid_gb_pearls"] = self.options.mermaid_gb_pearls.value
             settings_dict["cb_medal_behavior_new"] = self.options.medal_distribution.value
             settings_dict["smaller_shops"] = self.options.smaller_shops.value
+            settings_dict["puzzle_rando_difficulty"] = self.options.puzzle_rando.value
 
             # Level blocker settings
             blocker_options = [
@@ -869,6 +875,21 @@ if baseclasses_loaded:
             # Starting keys configuration
             settings_dict["starting_keys_list_selected"] = []
 
+            # Hard Boss mapping
+            hard_boss_mapping = {
+                "fast_mad_jack": HardBossesSelected.fast_mad_jack,
+                "alternative_mad_jack_kongs": HardBossesSelected.alternative_mad_jack_kongs,
+                "pufftoss_star_rando": HardBossesSelected.pufftoss_star_rando,
+                "pufftoss_star_raised": HardBossesSelected.pufftoss_star_raised,
+                "kut_out_phase_rando": HardBossesSelected.kut_out_phase_rando,
+                "k_rool_toes_rando": HardBossesSelected.k_rool_toes_rando,
+                "beta_lanky_phase": HardBossesSelected.beta_lanky_phase,
+            }
+
+            for hardboss in self.options.harder_bosses:
+                if hardboss in hard_boss_mapping:
+                    settings_dict["hard_bosses_selected"].append(hard_boss_mapping[hardboss])
+
             # Key mapping for starting inventory
             key_mapping = {
                 "Key 1": DK64RItems.JungleJapesKey,
@@ -1007,6 +1028,9 @@ if baseclasses_loaded:
                 "major": [],
                 "deep": [],
             }
+            # Initialize hint location mapping and dynamic hints storage
+            self.hint_location_mapping = {}
+            self.dynamic_hints = {}  # Store dynamic hints for CreateHints functionality
             self.foreignMicroHints = {}
 
             # Handle locations that start empty due to being junk
@@ -1091,6 +1115,9 @@ if baseclasses_loaded:
                                     DK64RItems.IceTrapDisableB,
                                     DK64RItems.IceTrapDisableCU,
                                     DK64RItems.IceTrapDisableZ,
+                                    DK64RItems.IceTrapGetOutGB,
+                                    DK64RItems.IceTrapDryGB,
+                                    DK64RItems.IceTrapFlipGB,
                                 ]:
                                     local_trap_count += 1
 
@@ -1098,7 +1125,7 @@ if baseclasses_loaded:
                                 # Most of these item restrictions should be handled by item rules, so this is a failsafe.
                                 # Junk items can't be placed in shops, bosses, or arenas. Fortunately this is junk, so we can just patch a NoItem there instead.
                                 # Shops are allowed to get Junk items placed by AP in order to artificially slightly reduce the number of checks in shops.
-                                if DK64RItem.ItemList[dk64_item].type == Types.JunkItem and (dk64_location.type in [Types.Shop, Types.Key, Types.Crown]):
+                                if DK64RItem.ItemList[dk64_item].type == Types.JunkItem and (dk64_location.type in [Types.Key, Types.Crown]):
                                     dk64_item = DK64RItems.NoItem
                                     self.junked_locations.append(ap_location.name)
                                 # Blueprints can't be on fairies for technical reasons. Instead we'll patch it in as an AP item and have AP handle it.
@@ -1126,11 +1153,17 @@ if baseclasses_loaded:
                 # Could add a hints on/off setting?
                 microhints_enabled = self.options.shopkeeper_hints.value or self.options.microhints.value > 0
                 hints_enabled = self.options.hint_style > 0
+
                 if hints_enabled or microhints_enabled:
                     self.hint_data_available.wait()
 
                 if hints_enabled:
                     CompileArchipelagoHints(self, self.hint_data)
+                    # Signal that hint compilation is complete
+                    self.hint_compilation_complete.set()
+                else:
+                    # If hints are not enabled, immediately set the event
+                    self.hint_compilation_complete.set()
 
                 if microhints_enabled:
                     # Finalize microhints
@@ -1405,7 +1438,13 @@ if baseclasses_loaded:
 
         def fill_slot_data(self) -> dict:
             """Fill the slot data."""
-            return {
+            # If hints are enabled, wait for hint compilation to complete
+            if hasattr(self, "options") and self.options.hint_style > 0:
+                self.hint_compilation_complete.wait()
+            hint_mapping = getattr(self, "hint_location_mapping", {})
+            dynamic_hints = getattr(self, "dynamic_hints", {})
+
+            slot_data = {
                 "Goal": self.options.goal.value,
                 "ClimbingShuffle": self.options.climbing_shuffle.value,
                 "PlayerNum": self.player,
@@ -1477,7 +1516,10 @@ if baseclasses_loaded:
                 "Autocomplete": self.options.auto_complete_bonus_barrels.value,
                 "HelmBarrelCount": self.options.helm_room_bonus_count.value,
                 "SmallerShopsData": self.get_smaller_shops_data(),
+                "HintLocationMapping": hint_mapping,
+                "hints": {str(location): hint_data for location, hint_data in dynamic_hints.items()},
             }
+            return slot_data
 
         def write_spoiler(self, spoiler_handle: typing.TextIO):
             """Write the spoiler."""
