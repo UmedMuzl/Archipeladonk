@@ -62,7 +62,7 @@ from randomizer.Enums.Types import Types, BarrierItems
 from randomizer.Lists.Item import ItemList
 from randomizer.Enums.Maps import Maps
 from randomizer.Lists.Warps import BananaportVanilla
-from randomizer.Patching.Library.Generic import getProgHintBarrierItem, IsDDMSSelected
+from randomizer.Patching.Library.Generic import getProgHintBarrierItem, sumChecks, getCompletableBonuses, IsDDMSSelected
 from randomizer.Prices import AnyKongCanBuy, CanBuy
 from archipelago.Items import use_original_name_or_trap_name
 
@@ -109,6 +109,9 @@ class LogicVarHolder:
 
         # Archipelago really wants the number of locations to match the number of items. Keep track of how many locations we've made here
         self.location_pool_size = 0
+
+        self.bosses_beaten = 0
+        self.bonuses_beaten = 0
 
         self.startkong = self.settings.starting_kong
         # AGL
@@ -372,12 +375,18 @@ class LogicVarHolder:
         ownedItems = []
         cbArchItems = []
         eventArchItems = []
+        bossesDefeated = 0
+        bonusesCompleted = 0
         for item_name, item_count in collectionState.prog_items[self.ap_player].items():
             if item_name.startswith("Collectible CBs"):
                 for i in range(item_count):
                     cbArchItems.append(item_name)
             elif item_name.startswith("Event, "):
                 eventArchItems.append(item_name)
+            elif item_name.startswith("Boss Defeated"):
+                bossesDefeated += 1
+            elif item_name.startswith("Bonus Completed"):
+                bonusesCompleted += 1
             else:
                 corresponding_item_id = logic_item_name_to_id[item_name]
                 for i in range(item_count):
@@ -393,6 +402,9 @@ class LogicVarHolder:
             event = Events[item_data[1]]
             event_list.append(event)
         self.Events = event_list
+
+        self.bosses_beaten = bossesDefeated
+        self.bonuses_beaten = bonusesCompleted
 
         self.Update(ownedItems)
 
@@ -433,6 +445,10 @@ class LogicVarHolder:
             if event in [Events.ForestEntered, Events.CastleEntered] and Items.HomingAmmo in self.latest_owned_items:
                 self.homing = True
             self.AddEvent(event)
+        elif ap_item.name.startswith("Boss Defeated"):
+            self.bosses_beaten += 1
+        elif ap_item.name.startswith("Bonus Completed"):
+            self.bonuses_beaten += 1
         else:
             corresponding_item_id = logic_item_name_to_id[ap_item.name]
             self.latest_owned_items.append(corresponding_item_id)
@@ -645,6 +661,8 @@ class LogicVarHolder:
                         self.Blueprints.append(corresponding_item_id)
                     if corresponding_item_id >= Items.JapesDonkeyHint and corresponding_item_id <= Items.CastleChunkyHint:
                         self.Hints.append(corresponding_item_id)
+                    if corresponding_item_id >= Items.PhotoBat and corresponding_item_id <= Items.PhotoBug:
+                        self.Photos[corresponding_item_id] = 1
 
     def RemoveArchipelagoItem(self, ap_item):
         """Add an Archipelago item to the owned items list."""
@@ -667,6 +685,10 @@ class LogicVarHolder:
             item_data = ap_item.name.split(", ")
             event = Events[item_data[1]]
             self.Events = [evt for evt in self.Events if evt != event]
+        elif ap_item.name.startswith("Boss Defeated"):
+            self.bosses_beaten -= 1
+        elif ap_item.name.startswith("Bonus Completed"):
+            self.bonuses_beaten -= 1
         else:
             corresponding_item_id = logic_item_name_to_id[ap_item.name]
             if corresponding_item_id in ownedItems:
@@ -812,47 +834,45 @@ class LogicVarHolder:
         self.Beans = sum(1 for x in ownedItems if x == Items.Bean)
         self.Pearls = sum(1 for x in ownedItems if x in [Items.Pearl, Items.FillerPearl])
 
-        # Don't need this until we add Krem Kap. It's very slow.
-        # photo_subjects = [
-        #     Items.PhotoBeaverBlue,
-        #     Items.PhotoBook,
-        #     Items.PhotoZingerCharger,
-        #     Items.PhotoKlobber,
-        #     Items.PhotoKlump,
-        #     Items.PhotoKaboom,
-        #     Items.PhotoKlaptrapGreen,
-        #     Items.PhotoZingerLime,
-        #     Items.PhotoKlaptrapPurple,
-        #     Items.PhotoKlaptrapRed,
-        #     Items.PhotoBeaverGold,
-        #     Items.PhotoFireball,
-        #     Items.PhotoMushroomMan,
-        #     Items.PhotoRuler,
-        #     Items.PhotoRoboKremling,
-        #     Items.PhotoKremling,
-        #     Items.PhotoKasplatDK,
-        #     Items.PhotoKasplatDiddy,
-        #     Items.PhotoKasplatLanky,
-        #     Items.PhotoKasplatTiny,
-        #     Items.PhotoKasplatChunky,
-        #     Items.PhotoZingerRobo,
-        #     Items.PhotoKrossbones,
-        #     Items.PhotoShuri,
-        #     Items.PhotoGimpfish,
-        #     Items.PhotoMrDice0,
-        #     Items.PhotoSirDomino,
-        #     Items.PhotoMrDice1,
-        #     Items.PhotoBat,
-        #     Items.PhotoGhost,
-        #     Items.PhotoPufftup,
-        #     Items.PhotoKosha,
-        #     Items.PhotoSpider,
-        #     Items.PhotoBug,
-        #     Items.PhotoKop,
-        #     Items.PhotoTomato,
-        # ]
-        # for subject in photo_subjects:
-        #     self.Photos[subject] = sum(1 for x in ownedItems if x == subject)
+        photo_subjects = [
+            Items.PhotoBeaverBlue,
+            Items.PhotoBook,
+            Items.PhotoZingerCharger,
+            Items.PhotoKlobber,
+            Items.PhotoKlump,
+            Items.PhotoKaboom,
+            Items.PhotoKlaptrapGreen,
+            Items.PhotoZingerLime,
+            Items.PhotoKlaptrapPurple,
+            Items.PhotoKlaptrapRed,
+            Items.PhotoBeaverGold,
+            Items.PhotoFireball,
+            Items.PhotoMushroomMan,
+            Items.PhotoRuler,
+            Items.PhotoRoboKremling,
+            Items.PhotoKremling,
+            Items.PhotoKasplatDK,
+            Items.PhotoKasplatDiddy,
+            Items.PhotoKasplatLanky,
+            Items.PhotoKasplatTiny,
+            Items.PhotoKasplatChunky,
+            Items.PhotoZingerRobo,
+            Items.PhotoKrossbones,
+            Items.PhotoShuri,
+            Items.PhotoGimpfish,
+            Items.PhotoMrDice0,
+            Items.PhotoSirDomino,
+            Items.PhotoMrDice1,
+            Items.PhotoBat,
+            Items.PhotoGhost,
+            Items.PhotoPufftup,
+            Items.PhotoKosha,
+            Items.PhotoSpider,
+            Items.PhotoBug,
+            Items.PhotoKop,
+            Items.PhotoTomato,
+        ]
+        self.Photos = {x: item_counts[x] for x in photo_subjects}
 
         self.UpdateCoins()
 
@@ -970,6 +990,15 @@ class LogicVarHolder:
             return kong_data and instrument_abilities[data.kong]
         elif data.switch_type == SwitchType.SlamSwitch:
             return kong_data and self.CanSlamSwitch(level, default_slam_level)
+        elif data.switch_type == SwitchType.GunInstrumentCombo:
+            gun_abilities = [self.coconut, self.peanut, self.grape, self.feather, self.pineapple]
+            instrument_abilities = [self.bongos, self.guitar, self.trombone, self.saxophone, self.triangle]
+            return kong_data and gun_abilities[data.kong] and instrument_abilities[data.kong]
+        elif data.switch_type == SwitchType.PushableButton:
+            if data.kong == Kongs.diddy:
+                return kong_data and self.charge
+            if data.kong == Kongs.chunky:
+                return kong_data and self.punch
         return False
 
     def CanPhaseswim(self):
@@ -1228,25 +1257,16 @@ class LogicVarHolder:
         return False
 
     def CanFreeTiny(self):
-        """Check if kong at Tiny location can be freed, requires either chimpy charge or primate punch."""
-        if self.spoiler.LocationList[Locations.TinyKong].item == Items.NoItem:
-            return self.IsKong(self.settings.tiny_freeing_kong) or self.settings.free_trade_items
-        elif self.settings.tiny_freeing_kong == Kongs.diddy or self.settings.tiny_freeing_kong == Kongs.chunky:
-            return self.hasMoveSwitchsanity(Switches.AztecOKONGPuzzle)
-        # Used only as placeholder during fill when kong puzzles are not yet assigned
-        elif self.settings.tiny_freeing_kong == Kongs.any:
-            return True
+        """Check if kong at Tiny location can be freed."""
+        return self.spoiler.LocationList[Locations.TinyKong].item == Items.NoItem or self.hasMoveSwitchsanity(Switches.AztecOKONGPuzzle)
 
     def CanLlamaSpit(self):
         """Check if the Llama spit can be triggered."""
         return self.HasInstrument(self.settings.lanky_freeing_kong)
 
     def CanFreeLanky(self):
-        """Check if kong at Lanky location can be freed, requires freeing kong to have its gun and instrument."""
-        if self.spoiler.LocationList[Locations.LankyKong].item == Items.NoItem:
-            return self.CanLlamaSpit(self) and self.swim and (self.IsKong(self.settings.lanky_freeing_kong) or self.settings.free_trade_items)
-        else:
-            return (self.swim and self.hasMoveSwitchsanity(Switches.AztecLlamaPuzzle)) or self.CanPhase() or self.CanPhaseswim()
+        """Check if kong at Lanky location can be freed."""
+        return self.spoiler.LocationList[Locations.LankyKong].item == Items.NoItem or self.hasMoveSwitchsanity(Switches.AztecLlamaPuzzle)
 
     def CanFreeChunky(self):
         """Check if kong at Chunky location can be freed."""
@@ -1623,6 +1643,13 @@ class LogicVarHolder:
                 if not k:
                     return False
             return True
+        elif self.settings.win_condition_item == WinConditionComplex.krools_challenge:
+            # Krool's Challenge: Beat K. Rool + collect all Keys, Blueprints, Bosses, and Bonus Barrels
+            return Events.KRoolDefeated in self.Events and self.ItemCheck(BarrierItems.Key, 8) and self.ItemCheck(BarrierItems.Blueprint, 40) and self.bosses_beaten >= 7 and self.bonuses_beaten >= 43
+        elif self.settings.win_condition_item == WinConditionComplex.req_bosses:
+            return self.bosses_beaten >= self.settings.win_condition_count
+        elif self.settings.win_condition_item == WinConditionComplex.req_bonuses:
+            return self.bonuses_beaten >= self.settings.win_condition_count
         # Get X amount of Y item win cons
         win_con_table = {
             WinConditionComplex.req_bean: BarrierItems.Bean,

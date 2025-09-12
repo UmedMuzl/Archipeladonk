@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from randomizer.Enums.Levels import Levels
 from randomizer.Lists import Item as DK64RItem
 from randomizer.Enums.Items import Items as DK64RItems
+from randomizer.Enums.Settings import WinConditionComplex
 from randomizer.Enums.Types import Types as DK64RTypes, BarrierItems
 import randomizer.ItemPool as DK64RItemPoolUtility
 
@@ -134,10 +135,12 @@ def setup_items(world: World) -> typing.List[DK64Item]:
             # For medals and fairies, also consider non-B. Locker progression requirements
             if barrier_type == BarrierItems.Medal:
                 medal_requirement = world.spoiler.settings.medal_requirement if world.spoiler.settings.medal_requirement > 0 else 0
-                progression_count = max(progression_count, medal_requirement)
+                wincon_requirement = world.spoiler.settings.win_condition_count if world.spoiler.settings.win_condition_item == WinConditionComplex.req_medal else 0
+                progression_count = max(progression_count, medal_requirement, wincon_requirement)
             elif barrier_type == BarrierItems.Fairy:
                 fairy_requirement = world.spoiler.settings.rareware_gb_fairies if world.spoiler.settings.rareware_gb_fairies > 0 else 0
-                progression_count = max(progression_count, fairy_requirement)
+                wincon_requirement = world.spoiler.settings.win_condition_count if world.spoiler.settings.win_condition_item == WinConditionComplex.req_fairy else 0
+                progression_count = max(progression_count, fairy_requirement, wincon_requirement)
 
             # Cap at maximum available
             progression_count = min(progression_count, max_quantity)
@@ -233,7 +236,6 @@ def setup_items(world: World) -> typing.List[DK64Item]:
             world.spoiler.settings.location_pool_size -= 1
             continue
         item_table.append(DK64Item(use_original_name_or_trap_name(item), classification, full_item_table[item.name].code, world.player))
-        # print("Adding item: " + seed_item.name + " | " + str(classification))
 
     # Extract starting moves from the item table - these items will be placed in your starting inventory directly
     for move in world.options.start_inventory:

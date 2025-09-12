@@ -454,6 +454,9 @@ def patching_response(spoiler):
         WinConditionComplex.dk_rap_items: {
             "index": 4,
         },
+        WinConditionComplex.krools_challenge: {
+            "index": 5,
+        },
         WinConditionComplex.req_bean: {
             "index": 3,
             "item": 0xA,
@@ -586,6 +589,11 @@ def patching_response(spoiler):
         byte_data, password = encPass(spoiler)
         ROM_COPY.writeMultipleBytes(byte_data, 4)
 
+    # Set K. Rool ship spawn method
+    ROM_COPY.seek(sav + 0x1B6)
+    krool_ship_spawn_method = 1 if spoiler.settings.win_condition_item == WinConditionComplex.krools_challenge else 0
+    ROM_COPY.writeMultipleBytes(krool_ship_spawn_method, 1)
+
     # Mill Levers
     if spoiler.settings.mill_levers[0] > 0:
         mill_text = ""
@@ -618,7 +626,10 @@ def patching_response(spoiler):
     if spoiler.settings.random_starting_region:
         ROM_COPY.seek(sav + 0x10C)
         ROM_COPY.write(spoiler.settings.starting_region["map"])
-        ROM_COPY.write(spoiler.settings.starting_region["exit"])
+        exit_val = spoiler.settings.starting_region["exit"]
+        if exit_val == -1:
+            exit_val = 0xFF
+        ROM_COPY.write(exit_val)
     if spoiler.settings.alter_switch_allocation:
         ROM_COPY.seek(sav + 0x103)
         ROM_COPY.write(1)
