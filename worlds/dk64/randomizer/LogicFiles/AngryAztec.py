@@ -383,6 +383,7 @@ LogicRegions = {
         LocationLogic(Locations.KremKap_AztecLlamaEnemy_Left, lambda l: l.camera),
         LocationLogic(Locations.KremKap_AztecLlamaEnemy_MelonCrate, lambda l: l.camera),
         LocationLogic(Locations.KremKap_AztecLlamaEnemy_SlamSwitch, lambda l: l.camera),
+        LocationLogic(Locations.KremKap_AztecNPC_Llama, lambda l: l.camera),
     ], [
         Event(Events.AztecDonkeySwitch, lambda l: l.hasMoveSwitchsanity(Switches.AztecQuicksandSwitch, False, Levels.AngryAztec, 1)),
         Event(Events.AztecLlamaSpit, lambda l: l.CanLlamaSpit()),
@@ -392,7 +393,7 @@ LogicRegions = {
     ], [
         TransitionFront(Regions.AngryAztecMain, lambda _: True, Transitions.AztecLlamaToMain),
         TransitionFront(Regions.LlamaTempleMatching, lambda l: (l.grape and l.islanky) or l.CanPhase()),
-        TransitionFront(Regions.LlamaTempleBack, lambda l: (l.mini and l.tiny) or l.CanPhase() or l.ledgeclip or l.CanOStandTBSNoclip()),
+        TransitionFront(Regions.LlamaTempleBack, lambda l: (l.mini and l.istiny) or l.CanPhase() or l.ledgeclip or l.CanOStandTBSNoclip()),
     ]),
 
     Regions.LlamaTempleMatching: Region("Llama Temple Matching", HintRegion.LlamaTemple, Levels.AngryAztec, False, -1, [

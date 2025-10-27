@@ -259,6 +259,14 @@ RegionMapList = {
     Regions.HideoutHelmKeyRoom: Maps.HideoutHelm,
     Regions.HideoutHelmOOBChunky: Maps.HideoutHelm,
     Regions.HideoutHelmOOBLanky: Maps.HideoutHelm,
+    # Misc
+    Regions.Snide: Maps.Snide,
+    Regions.SnideFirstGroup: Maps.Snide,
+    Regions.SnideSecondGroup: Maps.Snide,
+    Regions.SnideThirdGroup: Maps.Snide,
+    Regions.SnideFourthGroup: Maps.Snide,
+    Regions.SnideLastGroup: Maps.Snide,
+    Regions.FactoryArcadePole: Maps.FranticFactory,
 }
 
 LevelMapTable = {

@@ -38,6 +38,7 @@ from randomizer.Enums.Settings import (
     MoveRando,
     ProgressiveHintItem,
     RandomPrices,
+    RandomRequirement,
     RemovedBarriersSelected,
     ShockwaveStatus,
     ShuffleLoadingZones,
@@ -430,6 +431,8 @@ def GetAccessibleLocations(
                     if is_shuffled:
                         shuffled_exit = ShuffleExits.ShufflableExits[shuffle_id]
                         if shuffled_exit.shuffled:
+                            if not shuffled_exit.shuffledId:
+                                print(shuffled_exit.__dict__)
                             destination = ShuffleExits.ShufflableExits[shuffled_exit.shuffledId].back.regionId
                         elif shuffled_exit.toBeShuffled:
                             continue
@@ -1046,6 +1049,7 @@ def IdentifyMajorItems(spoiler: Spoiler) -> List[Locations]:
         majorItems.append(Items.Bean)
     if checkCommonBarriers(spoiler.settings, BarrierItems.RainbowCoin, WinConditionComplex.req_rainbowcoin):
         majorItems.append(Items.RainbowCoin)
+        majorItems.append(Items.FillerRainbowCoin)
     # The contents of some locations can make entire classes of items not foolish
     # Loop through these locations until no new items are added to the list of major items
     newFoolishItems = True
@@ -1066,6 +1070,14 @@ def IdentifyMajorItems(spoiler: Spoiler) -> List[Locations]:
         if spoiler.LocationList[Locations.ForestTinyBeanstalk].item in majorItems and Items.Bean not in majorItems:
             majorItems.append(Items.Bean)
             newFoolishItems = True
+        if Types.BlueprintBanana in spoiler.settings.shuffled_location_types and Items.DonkeyBlueprint not in majorItems:
+            bp_reward_location_id = Locations.TurnInJungleJapesDonkeyBlueprint
+            while bp_reward_location_id <= Locations.TurnInCreepyCastleChunkyBlueprint:
+                if spoiler.LocationList[bp_reward_location_id].item in majorItems:
+                    majorItems.extend(ItemPool.Blueprints())
+                    newFoolishItems = True
+                    break
+                bp_reward_location_id += 1
     return majorItems
 
 
@@ -1145,6 +1157,9 @@ def CalculateWothPaths(spoiler: Spoiler, WothLocations: List[Union[Locations, in
     if spoiler.settings.win_condition_item in (WinConditionComplex.beat_krool, WinConditionComplex.krools_challenge):
         for phase in spoiler.settings.krool_order:
             spoiler.krool_paths[phase] = []
+    # If the Rabbit is the win condition, prepare a path for him.
+    if spoiler.settings.win_condition_item == WinConditionComplex.kill_the_rabbit:
+        spoiler.rabbit_path = []
     for locationId in ordered_interesting_locations:
         # Remove the item from the location
         location = spoiler.LocationList[locationId]
@@ -1184,6 +1199,9 @@ def CalculateWothPaths(spoiler: Spoiler, WothLocations: List[Union[Locations, in
             for map_id in final_boss_associated_event:
                 if map_id in spoiler.settings.krool_order and final_boss_associated_event[map_id] not in spoiler.LogicVariables.Events:
                     spoiler.krool_paths[map_id].append(locationId)
+        if spoiler.settings.win_condition_item == WinConditionComplex.kill_the_rabbit:
+            if Events.KilledRabbit not in spoiler.LogicVariables.Events:
+                spoiler.rabbit_path.append(locationId)
         elif spoiler.settings.win_condition_item == WinConditionComplex.dk_rap_items:
             rap_assoc_name = {
                 "Donkey Verse": Events.DonkeyVerse,
@@ -1360,6 +1378,20 @@ def CalculateFoolish(spoiler: Spoiler, WothLocations: List[Union[Locations, int]
                 spoiler.region_hintable_count[region.hint_name] += regionItemCount
     # The regions that are foolish are all regions not in this list (that have locations in them!)
     spoiler.foolish_region_names = list(set([region.hint_name for id, region in spoiler.RegionList.items() if any(region.locations) and region.hint_name not in nonHintableNames]))
+
+    # If any Snide region is not foolish, none of the Snide regions preceding it can be foolish
+    if HintRegion.SnideLastGroup not in spoiler.foolish_region_names:
+        if HintRegion.SnideFourthGroup in spoiler.foolish_region_names:
+            spoiler.foolish_region_names.remove(HintRegion.SnideFourthGroup)
+    if HintRegion.SnideFourthGroup not in spoiler.foolish_region_names:
+        if HintRegion.SnideThirdGroup in spoiler.foolish_region_names:
+            spoiler.foolish_region_names.remove(HintRegion.SnideThirdGroup)
+    if HintRegion.SnideThirdGroup not in spoiler.foolish_region_names:
+        if HintRegion.SnideSecondGroup in spoiler.foolish_region_names:
+            spoiler.foolish_region_names.remove(HintRegion.SnideSecondGroup)
+    if HintRegion.SnideSecondGroup not in spoiler.foolish_region_names:
+        if HintRegion.SnideFirstGroup in spoiler.foolish_region_names:
+            spoiler.foolish_region_names.remove(HintRegion.SnideFirstGroup)
 
     # Determine non-path items (foolish v2)
     # Non-path items are items that are not on the path to anything. This is similar but different to a foolish hint, so the phrasing on the hint will be different.
@@ -1963,8 +1995,8 @@ def FillBossLocations(spoiler: Spoiler, placed_types: List[Types], placed_items:
         if item in unplaced_items:
             unplaced_items.remove(item)
     debug_failed_to_place_items = []
-    possible_items = [item for item in unplaced_items if item < Items.JungleJapesDonkeyBlueprint or item > Items.DKIslesChunkyBlueprint]  # To save some time, we know blueprints can't be on bosses
-    spoiler.settings.random.shuffle(possible_items)
+    possible_items = [item for item in unplaced_items]
+    spoiler.settings.random.shuffle(unplaced_items)
     # Until we have placed enough items...
     while len(placed_on_bosses) < len(empty_boss_locations):
         if len(possible_items) == 0:
@@ -2004,7 +2036,7 @@ def Fill(spoiler: Spoiler) -> None:
     if Types.RainbowCoin in spoiler.settings.shuffled_location_types:
         placed_types.append(Types.RainbowCoin)
         spoiler.Reset()
-        rainbowCoinsToPlace = ItemPool.RainbowCoinItems().copy()
+        rainbowCoinsToPlace = ItemPool.RainbowCoinItems(spoiler.settings).copy()
         for item in preplaced_items:
             if item in rainbowCoinsToPlace:
                 rainbowCoinsToPlace.remove(item)
@@ -2068,6 +2100,10 @@ def Fill(spoiler: Spoiler) -> None:
         if Types.Snide in spoiler.settings.shuffled_location_types:
             placed_types.append(Types.Snide)
             bigListOfItemsToPlace.extend(ItemPool.SnideItems())
+        # If we have Snide rewards, Blueprints become much more logically important and need to be placed in the big fill so as to not bias towards those locations, especially if there's a large cap
+        if Types.BlueprintBanana in spoiler.settings.shuffled_location_types and Types.Blueprint in spoiler.settings.shuffled_location_types:
+            placed_types.append(Types.Blueprint)
+            bigListOfItemsToPlace.extend(ItemPool.Blueprints().copy())
         for item in preplaced_items:
             if item in bigListOfItemsToPlace:
                 bigListOfItemsToPlace.remove(item)
@@ -2149,7 +2185,7 @@ def Fill(spoiler: Spoiler) -> None:
     if Types.Pearl in spoiler.settings.shuffled_location_types:
         placed_types.append(Types.Pearl)
         spoiler.Reset()
-        miscItemsToPlace = ItemPool.PearlItems().copy()
+        miscItemsToPlace = ItemPool.PearlItems(spoiler.settings).copy()
         for item in preplaced_items:
             if item in miscItemsToPlace:
                 miscItemsToPlace.remove(item)
@@ -2192,8 +2228,8 @@ def Fill(spoiler: Spoiler) -> None:
             "things on Bosses",
         )
 
-    # Then place Blueprints - these are moderately restrictive in their placement
-    if Types.Blueprint in spoiler.settings.shuffled_location_types:
+    # Then place Blueprints - these are moderately restrictive in their placement (so much so that we may have to place them earlier than this)
+    if Types.Blueprint in spoiler.settings.shuffled_location_types and Types.Blueprint not in placed_types:
         placed_types.append(Types.Blueprint)
         spoiler.Reset()
         blueprintsToPlace = ItemPool.Blueprints().copy()
@@ -2203,7 +2239,7 @@ def Fill(spoiler: Spoiler) -> None:
         # Blueprints can be placed largely randomly - there's no location (yet) that can cause blueprints to lock themselves
         blueprintsUnplaced = PlaceItems(
             spoiler,
-            FillAlgorithm.careful_random,
+            spoiler.settings.algorithm,
             blueprintsToPlace,
             ItemPool.GetItemsNeedingToBeAssumed(spoiler.settings, placed_types, placed_items=preplaced_items),
         )
@@ -2242,7 +2278,7 @@ def Fill(spoiler: Spoiler) -> None:
     if Types.Crown in spoiler.settings.shuffled_location_types:
         placed_types.append(Types.Crown)
         spoiler.Reset()
-        crownsToPlace = ItemPool.BattleCrownItems()
+        crownsToPlace = ItemPool.BattleCrownItems(spoiler.settings)
         for item in preplaced_items:
             if item in crownsToPlace:
                 crownsToPlace.remove(item)
@@ -2298,7 +2334,7 @@ def Fill(spoiler: Spoiler) -> None:
     if Types.Fairy in spoiler.settings.shuffled_location_types:
         placed_types.append(Types.Fairy)
         spoiler.Reset()
-        fairiesToBePlaced = ItemPool.FairyItems()
+        fairiesToBePlaced = ItemPool.FairyItems(spoiler.settings)
         for item in preplaced_items:
             if item in fairiesToBePlaced:
                 fairiesToBePlaced.remove(item)
@@ -2328,7 +2364,7 @@ def Fill(spoiler: Spoiler) -> None:
     if Types.Banana in spoiler.settings.shuffled_location_types:
         placed_types.append(Types.Banana)
         spoiler.Reset()
-        gbsToBePlaced = ItemPool.GoldenBananaItems()
+        gbsToBePlaced = ItemPool.GoldenBananaItems(spoiler.settings)
         for item in preplaced_items:
             if item in gbsToBePlaced:
                 gbsToBePlaced.remove(item)
@@ -2383,6 +2419,7 @@ def Fill(spoiler: Spoiler) -> None:
         Types.FillerFairy,
         Types.FillerPearl,
         Types.FillerMedal,
+        Types.FillerRainbowCoin,
     ]
     filler_types_in_pool = [x for x in filler_types if x in spoiler.settings.shuffled_location_types]
     if len(filler_types_in_pool) > 0:
@@ -3825,6 +3862,12 @@ def ShuffleMisc(spoiler: Spoiler) -> None:
         Items.PhotoTomato,
         Items.PhotoZingerLime,
         Items.PhotoZingerCharger,
+        Items.PhotoBFI,
+        Items.PhotoIceTomato,
+        Items.PhotoMermaid,
+        Items.PhotoLlama,
+        Items.PhotoMechfish,
+        Items.PhotoSeal,
     ]
     if len(spoiler.settings.enemies_selected) > 0:
         randomize_enemies_0(spoiler)
@@ -4004,6 +4047,9 @@ def CheckForIncompatibleSettings(settings: Settings) -> None:
         settings.trap_weight_icefloor,
         settings.trap_weight_paper,
         settings.trap_weight_slip,
+        settings.trap_weight_animal,
+        settings.trap_weight_rockfall,
+        settings.trap_weight_disabletag,
     ]
     if IsDDMSSelected(settings.filler_items_selected, ItemRandoFiller.icetraps) and not settings.archipelago:
         if settings.ice_trap_count == 0:
@@ -4014,6 +4060,94 @@ def CheckForIncompatibleSettings(settings: Settings) -> None:
                 all_zero_weights = False
         if all_zero_weights:
             found_incompatibilities += "All Ice Traps have a zero weight, meaning it can't place anything. "
+    total_item_counts = settings.total_gbs + settings.total_crowns + settings.total_fairies + settings.total_medals + settings.total_pearls + settings.total_rainbow_coins
+    max_item_counts = 201 + 10 + 20 + 45 + 5 + 16
+    if total_item_counts > max_item_counts:
+        found_incompatibilities += f"Total amounts of GBs, Crowns, Fairies, Medals, Pearls, and Rainbow coins exceeds {max_item_counts}. "
+    custom_item_count_data = {
+        "Golden Bananas": {
+            "value": settings.total_gbs,
+            "min": 40,
+        },
+        "Crowns": {
+            "value": settings.total_crowns,
+        },
+        "Medals": {
+            "value": settings.total_medals,
+        },
+        "Fairies": {
+            "value": settings.total_fairies,
+        },
+        "Rainbow Coins": {
+            "value": settings.total_rainbow_coins,
+        },
+        "Pearls": {
+            "value": settings.total_pearls,
+        },
+    }
+    for item_name, item_data in custom_item_count_data.items():
+        min_v = item_data.get("min", 0)
+        max_v = item_data.get("max", 255)
+        count_v = item_data.get("value", 0)
+        if count_v < min_v:
+            found_incompatibilities += f"Total count of {item_name} cannot be less than {min_v}"
+        if count_v > max_v:
+            found_incompatibilities += f"Total count of {item_name} cannot exceed {max_v}"
+    if settings.total_gbs < settings.blocker_text and settings.blocker_selection_behavior == BLockerSetting.pre_selected:
+        found_incompatibilities += "Less GBs selected than your highest B Locker. "
+    if settings.total_medals < settings.medal_requirement and settings.medal_jetpac_behavior == RandomRequirement.pre_selected:
+        found_incompatibilities += "Less Medals selected than the requirement for Jetpac. "
+    if settings.total_pearls < settings.mermaid_gb_pearls and settings.pearl_mermaid_behavior == RandomRequirement.pre_selected:
+        found_incompatibilities += "Less Pearls selected than the requirement for Mermaid Check. "
+    if settings.total_fairies < settings.rareware_gb_fairies and settings.fairy_queen_behavior == RandomRequirement.pre_selected:
+        found_incompatibilities += "Less Fairies selected than the requirement for Fairy Queen Check. "
+    # Check Win Con and Helm Doors for these requirements too
+    door_mapping = [
+        {
+            "name_plural": "Golden Bananas",
+            "setting_value": settings.total_gbs,
+            "win_con": WinConditionComplex.req_gb,
+            "barrier": BarrierItems.GoldenBanana,
+        },
+        {
+            "name_plural": "Medals",
+            "setting_value": settings.total_medals,
+            "win_con": WinConditionComplex.req_medal,
+            "barrier": BarrierItems.Medal,
+        },
+        {
+            "name_plural": "Fairies",
+            "setting_value": settings.total_fairies,
+            "win_con": WinConditionComplex.req_fairy,
+            "barrier": BarrierItems.Fairy,
+        },
+        {
+            "name_plural": "Rainbow Coins",
+            "setting_value": settings.total_rainbow_coins,
+            "win_con": WinConditionComplex.req_rainbowcoin,
+            "barrier": BarrierItems.RainbowCoin,
+        },
+        {
+            "name_plural": "Pearls",
+            "setting_value": settings.total_pearls,
+            "win_con": WinConditionComplex.req_pearl,
+            "barrier": BarrierItems.Pearl,
+        },
+        {
+            "name_plural": "Crowns",
+            "setting_value": settings.total_crowns,
+            "win_con": WinConditionComplex.req_crown,
+            "barrier": BarrierItems.Crown,
+        },
+    ]
+    for item_map in door_mapping:
+        if settings.win_condition_item == item_map["win_con"] and settings.win_condition_count > item_map["setting_value"]:
+            found_incompatibilities += f"Less {item_map['name_plural']} selected than your win condition. "
+        if settings.crown_door_item == item_map["barrier"] and settings.crown_door_item_count > item_map["setting_value"]:
+            found_incompatibilities += f"Less {item_map['name_plural']} selected than your first helm door. "
+        if settings.coin_door_item == item_map["barrier"] and settings.coin_door_item_count > item_map["setting_value"]:
+            found_incompatibilities += f"Less {item_map['name_plural']} selected than your second helm door. "
+
     if not settings.is_valid_item_pool():
         found_incompatibilities += "Item pool is not a valid combination of items and cannot successfully fill the world. "
     if settings.krool_access and Items.HideoutHelmKey in settings.starting_keys_list_selected:

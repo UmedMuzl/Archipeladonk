@@ -234,7 +234,8 @@ class LogicVarHolder:
         self.bosses_beaten = 0
         self.bonuses_beaten = 0
 
-        self.Blueprints = []
+        self.Blueprints = 0
+        self.BlueprintsWithKong = 0
 
         self.Events = []
 
@@ -474,7 +475,7 @@ class LogicVarHolder:
         self.BananaFairies = item_counts[Items.BananaFairy] + item_counts[Items.FillerFairy]
         self.BananaMedals = item_counts[Items.BananaMedal] + item_counts[Items.FillerMedal]
         self.BattleCrowns = item_counts[Items.BattleCrown] + item_counts[Items.FillerCrown]
-        self.RainbowCoins = item_counts[Items.RainbowCoin]
+        self.RainbowCoins = item_counts[Items.RainbowCoin] + item_counts[Items.FillerRainbowCoin]
 
         self.camera = self.camera or Items.CameraAndShockwave in ownedItems or Items.Camera in ownedItems
         self.shockwave = self.shockwave or Items.CameraAndShockwave in ownedItems or Items.Shockwave in ownedItems
@@ -486,7 +487,16 @@ class LogicVarHolder:
         self.superSlam = self.Slam >= 2
         self.superDuperSlam = self.Slam >= 3
 
-        self.Blueprints = [x for x in ownedItems if x >= Items.JungleJapesDonkeyBlueprint and x <= Items.DKIslesChunkyBlueprint]
+        total_bp_count = 0
+        total_bp_count_nokong = 0
+        kong_ownership = [self.donkey, self.diddy, self.lanky, self.tiny, self.chunky]
+        bp_counts = [item_counts[Items.DonkeyBlueprint + kong] for kong in range(5)]
+        for kong in range(5):
+            if kong_ownership[kong]:
+                total_bp_count += bp_counts[kong]
+            total_bp_count_nokong += bp_counts[kong]
+        self.Blueprints = total_bp_count_nokong
+        self.BlueprintsWithKong = total_bp_count
         self.Hints = [x for x in ownedItems if x >= Items.JapesDonkeyHint and x <= Items.CastleChunkyHint]
         self.Beans = sum(1 for x in ownedItems if x == Items.Bean)
         self.Pearls = sum(1 for x in ownedItems if x in [Items.Pearl, Items.FillerPearl])
@@ -529,6 +539,12 @@ class LogicVarHolder:
             Items.PhotoBug,
             Items.PhotoKop,
             Items.PhotoTomato,
+            Items.PhotoBFI,
+            Items.PhotoIceTomato,
+            Items.PhotoMermaid,
+            Items.PhotoLlama,
+            Items.PhotoMechfish,
+            Items.PhotoSeal,
         ]
         for subject in photo_subjects:
             self.Photos[subject] = sum(1 for x in ownedItems if x == subject)
@@ -576,7 +592,7 @@ class LogicVarHolder:
     def canAccessHelm(self) -> bool:
         """Determine whether the player can access helm whilst the timer is active."""
         if IsDDMSSelected(self.settings.hard_mode_selected, HardModeSelected.strict_helm_timer):
-            return self.snideAccess and len(self.Blueprints) > (4 + (2 * self.settings.helm_phase_count))
+            return self.snideAccess and self.Blueprints > (4 + (2 * self.settings.helm_phase_count))
         return self.snideAccess or self.assumeFillSuccess
 
     @lru_cache(maxsize=None)
@@ -857,7 +873,7 @@ class LogicVarHolder:
         # Create check counts dictionary
         check_counts = {
             BarrierItems.GoldenBanana: self.GoldenBananas,
-            BarrierItems.Blueprint: len(self.Blueprints),
+            BarrierItems.Blueprint: self.Blueprints,
             BarrierItems.CompanyCoin: company_coins,
             BarrierItems.Key: keys,
             BarrierItems.Medal: self.BananaMedals,
@@ -1328,6 +1344,8 @@ class LogicVarHolder:
         elif condition == WinConditionComplex.krools_challenge:
             # Krool's Challenge: Beat K. Rool + collect all Keys, Blueprints, Bosses, and Bonus Barrels
             return Events.KRoolDefeated in self.Events and self.ItemCheck(BarrierItems.Key, 8) and self.ItemCheck(BarrierItems.Blueprint, 40) and self.bosses_beaten >= 7 and self.bonuses_beaten >= 43
+        elif condition == WinConditionComplex.kill_the_rabbit:
+            return Events.KilledRabbit in self.Events
         elif condition == WinConditionComplex.req_bonuses:
             return self.bonuses_beaten >= self.settings.win_condition_count
         elif condition == WinConditionComplex.req_bosses:
@@ -1362,6 +1380,14 @@ class LogicVarHolder:
         is_correct_kong = self.istiny or self.settings.free_trade_items
         required_level_order = max(2, min(ceil(self.settings.rareware_gb_fairies / 2), 5))  # At least level 2 to give space for fairy placements, at most level 5 to allow shenanigans
         return have_enough_fairies and is_correct_kong and self.HasFillRequirementsForLevel(self.settings.level_order[required_level_order])
+
+    def CanGetBlueprintReward(self, value):
+        """Check if you have sufficient access to a Blueprint reward location."""
+        # A Blueprint buffer is not required after the fill is complete or if there can only be GBs here
+        if self.assumeFillSuccess or Types.BlueprintBanana not in self.settings.shuffled_location_types or value > self.settings.most_snide_rewards:
+            return self.BlueprintsWithKong >= value
+        bufferValue = ceil(value * 0.2)
+        return self.BlueprintsWithKong >= min(40, bufferValue + value)
 
     def HasAllItems(self):
         """Return if you have all progression items."""

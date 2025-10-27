@@ -25,6 +25,12 @@ class PkmnSnapEnemy:
             Enemies.KasplatChunky,
             Enemies.Book,
             Enemies.EvilTomato,
+            Enemies.FairyQueen,
+            Enemies.IceTomato,
+            Enemies.Llama,
+            Enemies.Mermaid,
+            Enemies.Seal1,
+            Enemies.MechFish,
         ):
             # Always spawned, not in pool
             self.spawned = True
@@ -90,6 +96,12 @@ pkmn_snap_enemies = [
     PkmnSnapEnemy(Enemies.Bug),
     PkmnSnapEnemy(Enemies.ZingerFlamethrower),
     PkmnSnapEnemy(Enemies.Scarab),
+    PkmnSnapEnemy(Enemies.FairyQueen),
+    PkmnSnapEnemy(Enemies.IceTomato),
+    PkmnSnapEnemy(Enemies.Mermaid),
+    PkmnSnapEnemy(Enemies.Llama),
+    PkmnSnapEnemy(Enemies.MechFish),
+    PkmnSnapEnemy(Enemies.Seal1),
 ]
 
 valid_maps = [
@@ -240,7 +252,10 @@ def resetPkmnSnap():
 def setPkmnSnapEnemy(focused_enemy):
     """Set enemy to being spawned."""
     for enemy in pkmn_snap_enemies:
-        if enemy.enemy == focused_enemy:
+        ref_enemies = [enemy.enemy]
+        if enemy.enemy == Enemies.Guard:
+            ref_enemies = [Enemies.Guard, Enemies.GuardDisableA, Enemies.GuardDisableZ, Enemies.GuardTag, Enemies.GuardGetOut]
+        if focused_enemy in ref_enemies:
             enemy.addEnemy()
 
 
@@ -589,13 +604,22 @@ krem_kap_mapping = {
     Enemies.FireballGlasses: Items.PhotoFireball,
     Enemies.Bug: Items.PhotoBug,
     Enemies.Guard: Items.PhotoKop,
+    Enemies.GuardDisableA: Items.PhotoKop,
+    Enemies.GuardDisableZ: Items.PhotoKop,
+    Enemies.GuardGetOut: Items.PhotoKop,
+    Enemies.GuardTag: Items.PhotoKop,
+    Enemies.FairyQueen: Items.PhotoBFI,
+    Enemies.IceTomato: Items.PhotoIceTomato,
+    Enemies.Mermaid: Items.PhotoMermaid,
+    Enemies.Llama: Items.PhotoLlama,
+    Enemies.MechFish: Items.PhotoMechfish,
+    Enemies.Seal1: Items.PhotoSeal,
 }
 
 
 def randomize_enemies_0(spoiler):
     """Determine randomized enemies."""
     data = {}
-    noise_management_dict = {}  # Prevent known game freezes
     pkmn = []
     resetPkmnSnap()
     spoiler.valid_photo_items = [
@@ -607,16 +631,19 @@ def randomize_enemies_0(spoiler):
         Items.PhotoKasplatLanky,
         Items.PhotoKasplatTiny,
         Items.PhotoKasplatChunky,
+        Items.PhotoBFI,  # Not Randomized
+        Items.PhotoIceTomato,  # Not Randomized
+        Items.PhotoMermaid,  # Not Randomized
+        Items.PhotoLlama,  # Not Randomized
+        Items.PhotoMechfish,  # Not Randomized
+        Items.PhotoSeal,  # Not Randomized
     ]
     for loc in spoiler.enemy_location_list:
         if spoiler.enemy_location_list[loc].enable_randomization:
-            sound_safeguard = False
             map = spoiler.enemy_location_list[loc].map
             if map not in data:
                 data[map] = []
-                noise_management_dict[map] = 0
-            sound_safeguard = noise_management_dict[map] > 2
-            new_enemy = spoiler.enemy_location_list[loc].placeNewEnemy(spoiler.settings.random, spoiler.settings.enemies_selected, True, sound_safeguard)
+            new_enemy = spoiler.enemy_location_list[loc].placeNewEnemy(spoiler.settings.random, spoiler.settings.enemies_selected, True)
             krem_kap_location = (loc - Locations.JapesMainEnemy_Start) + Locations.KremKap_JapesMainEnemy_Start
             if krem_kap_location in spoiler.LocationList:
                 item = krem_kap_mapping[new_enemy]
@@ -629,8 +656,6 @@ def randomize_enemies_0(spoiler):
                     print(f"ALERT: INCORRECT ENEMY {loc.name}")
             elif spoiler.enemy_location_list[loc].respawns:
                 print(f"ALERT: MISSING ENEMY {loc.name}")
-            if map == Maps.ForestAnthill or not spoiler.enemy_location_list[loc].respawns and EnemyMetaData[new_enemy].audio_engine_burden:
-                noise_management_dict[map] += 1
             data[map].append(
                 {
                     "enemy": new_enemy,
@@ -789,7 +814,7 @@ def randomize_enemies(spoiler, ROM_COPY: LocalROM):
                         ROM_COPY.writeMultipleBytes(crown_timer, 1)  # Determine Crown length. DK64 caps at 255 seconds
         if spoiler.settings.win_condition_item == WinConditionComplex.krem_kapture:
             # Pkmn snap handler
-            values = [0, 0, 0, 0, 0]
+            values = [0, 0, 0, 0, 0, 0]
             # In some cases, the Pkmn Snap data hasn't yet been initialized (enemy rando disabled)
             # so we use the default values
             if len(spoiler.pkmn_snap_data) == 0:
@@ -830,12 +855,18 @@ def randomize_enemies(spoiler, ROM_COPY: LocalROM):
                     True,  # Ghost
                     True,  # Pufftup
                     True,  # Kosha
+                    True,  # Fairy Queen
+                    True,  # Ice Tomato
+                    True,  # Mermaid
+                    True,  # Llama
+                    True,  # Mechfish
+                    True,  # Seal
                 ]
             for enemy_index, spawned in enumerate(spoiler.pkmn_snap_data):
                 if spawned:
                     offset = enemy_index >> 3
                     shift = enemy_index & 7
                     values[offset] |= 1 << shift
-            ROM_COPY.seek(spoiler.settings.rom_data + 0x117)
+            ROM_COPY.seek(spoiler.settings.rom_data + 0x196)
             for value in values:
                 ROM_COPY.writeMultipleBytes(value, 1)

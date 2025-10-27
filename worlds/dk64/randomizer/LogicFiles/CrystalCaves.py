@@ -139,6 +139,7 @@ LogicRegions = {
 
     Regions.FrozenCastle: Region("Frozen Castle", HintRegion.MainCaves, Levels.CrystalCaves, False, None, [
         LocationLogic(Locations.CavesLankyCastle, lambda l: l.Slam and (l.islanky or (l.settings.free_trade_items and (not l.isdonkey or l.superSlam)))),
+        LocationLogic(Locations.KremKap_CavesNPC_IceTomato, lambda l: l.camera),
     ], [], [
         TransitionFront(Regions.CrystalCavesMain, lambda _: True, Transitions.CavesCastleToMain),
     ]),
@@ -202,7 +203,9 @@ LogicRegions = {
 
     Regions.ChunkyIgloo: Region("Chunky Igloo", HintRegion.Igloo, Levels.CrystalCaves, False, None, [
         LocationLogic(Locations.CavesChunky5DoorIgloo, lambda l: l.ischunky or l.settings.free_trade_items),
-    ], [], [
+    ], [
+        Event(Events.KilledRabbit, lambda _: True),
+    ], [
         TransitionFront(Regions.IglooArea, lambda _: True, Transitions.CavesChunkyToIgloo),
     ]),
 

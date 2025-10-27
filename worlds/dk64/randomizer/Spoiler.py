@@ -35,6 +35,7 @@ from randomizer.Enums.Settings import (
     TrainingBarrels,
     TroffSetting,
     WinConditionComplex,
+    WrinklyHints,
 )
 from randomizer.Enums.Transitions import Transitions
 from randomizer.Enums.Types import Types, BarrierItems
@@ -93,6 +94,7 @@ class Spoiler:
         self.woth_locations = {}
         self.woth_paths = {}
         self.krool_paths = {}
+        self.rabbit_path = []
         self.rap_win_con_paths = {}
         self.other_paths = {}
         self.shuffled_door_data = {}
@@ -159,6 +161,12 @@ class Spoiler:
             Items.PhotoTomato,
             Items.PhotoZingerLime,
             Items.PhotoZingerCharger,
+            Items.PhotoBFI,
+            Items.PhotoIceTomato,
+            Items.PhotoMermaid,
+            Items.PhotoLlama,
+            Items.PhotoMechfish,
+            Items.PhotoSeal,
         ]
 
         self.move_data = []
@@ -276,6 +284,7 @@ class Spoiler:
             Types.Pearl: "Pearls",
             Types.FillerPearl: "Pearls",
             Types.RainbowCoin: "Rainbow Coins",
+            Types.FillerRainbowCoin: "Rainbow Coins",
             Types.FakeItem: "Ice Traps",
             Types.JunkItem: "Junk Items",
             Types.CrateItem: "Melon Crates",
@@ -420,6 +429,7 @@ class Spoiler:
                 WinConditionComplex.dk_rap_items: "Complete the Rap",
                 WinConditionComplex.req_bean: "Acquire the Bean",
                 WinConditionComplex.krools_challenge: "Beat K. Rool's Challenge",
+                WinConditionComplex.kill_the_rabbit: "Kill the Rabbit",
                 WinConditionComplex.req_bp: f"{wc_count} Blueprint{'s' if wc_count != 1 else ''}",
                 WinConditionComplex.req_companycoins: f"{wc_count} Company Coin{'s' if wc_count != 1 else ''}",
                 WinConditionComplex.req_crown: f"{wc_count} Crown{'s' if wc_count != 1 else ''}",
@@ -1154,13 +1164,14 @@ class Spoiler:
                     if location.item is not None and location.item != Items.NoItem and not (hint_info.related_location in TrainingBarrelLocations or hint_info.related_location in PreGivenLocations):
                         item = ItemList[location.item]
                         human_hint_list[hint_info.name] += f" | (Hinting towards: {item.name} at {location.name})"
+                        if hint_info.is_last_woth_hint:
+                            human_hint_list[hint_info.name] += "*"
             humanspoiler["Wrinkly Hints"] = human_hint_list
-            # humanspoiler["Unhinted Score"] = self.unhinted_score
-            # humanspoiler["Potentially Awful Locations"] = {}
-            # for location_description in self.poor_scoring_locations:
-            #     humanspoiler["Potentially Awful Locations"][location_description] = self.poor_scoring_locations[location_description]
-            # if hasattr(self, "hint_swap_advisory"):
-            #     humanspoiler["Hint Swap Advisory"] = self.hint_swap_advisory
+            if self.settings.wrinkly_hints != WrinklyHints.off:
+                humanspoiler["Unhinted Score"] = self.unhinted_score
+                humanspoiler["Potentially Awful Locations"] = {}
+                for location_description in self.poor_scoring_locations:
+                    humanspoiler["Potentially Awful Locations"][location_description] = self.poor_scoring_locations[location_description]
         self.json = json.dumps(humanspoiler, indent=4)
 
     def UpdateKasplats(self, kasplat_map: Dict[Locations, Kongs]) -> None:
@@ -1369,7 +1380,7 @@ class Spoiler:
             # WinConditionComplex.req_key: [Types.Key],
             WinConditionComplex.req_medal: [Types.Medal, Types.FillerMedal],
             WinConditionComplex.req_pearl: [Types.Pearl, Types.FillerPearl],
-            WinConditionComplex.req_rainbowcoin: [Types.RainbowCoin],
+            WinConditionComplex.req_rainbowcoin: [Types.RainbowCoin, Types.FillerRainbowCoin],
         }
         # Win condition items are more important than GBs but less than moves
         if self.settings.win_condition_item in win_con_type_table:

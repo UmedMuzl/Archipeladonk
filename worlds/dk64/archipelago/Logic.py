@@ -63,7 +63,7 @@ from randomizer.Lists.Item import ItemList
 from randomizer.Enums.Maps import Maps
 from randomizer.Lists.Warps import BananaportVanilla
 from randomizer.Patching.Library.Generic import getProgHintBarrierItem, sumChecks, getCompletableBonuses, IsDDMSSelected
-from randomizer.Prices import AnyKongCanBuy, CanBuy
+from randomizer.Prices import AnyKongCanBuy, CanBuy, GetPriceAtLocation
 from archipelago.Items import use_original_name_or_trap_name
 
 STARTING_SLAM = 0  # Currently we're assuming you always start with 1 slam
@@ -105,7 +105,7 @@ class LogicVarHolder:
 
         # One Archipelago-specific exception - assuming infinite coins shortcuts a few price-related functions that we don't care about
         # In Archipelago, shops are free cause we're not tackling coin logic yet
-        self.assumeInfiniteCoins = True
+        self.assumeInfiniteCoins = False
 
         # Archipelago really wants the number of locations to match the number of items. Keep track of how many locations we've made here
         self.location_pool_size = 0
@@ -259,7 +259,8 @@ class LogicVarHolder:
         self.superSlam = False
         self.superDuperSlam = False
 
-        self.Blueprints = []
+        self.Blueprints = 0
+        self.BlueprintsWithKong = 0
         self.Photos = {}
 
         self.Events = []
@@ -374,6 +375,7 @@ class LogicVarHolder:
         self.Reset()
         ownedItems = []
         cbArchItems = []
+        coinArchItems = []
         eventArchItems = []
         bossesDefeated = 0
         bonusesCompleted = 0
@@ -381,6 +383,9 @@ class LogicVarHolder:
             if item_name.startswith("Collectible CBs"):
                 for i in range(item_count):
                     cbArchItems.append(item_name)
+            elif item_name.startswith("Collectible Coins"):
+                for i in range(item_count):
+                    coinArchItems.append(item_name)
             elif item_name.startswith("Event, "):
                 eventArchItems.append(item_name)
             elif item_name.startswith("Boss Defeated"):
@@ -422,6 +427,18 @@ class LogicVarHolder:
             quantity = int(item_data[3])
             colored_banana_counts[level][kong] += quantity
         self.ColoredBananas = colored_banana_counts
+        
+        # Track coin collectibles
+        for item_name in coinArchItems:
+            # Coins are carefully named in the following format:
+            # index 0: "Collectible Coins" - needed to identify this as a coin collectible item
+            # index 1: the Kong's name, matching the Kongs enum
+            # index 2: the quantity of coins (as a string!)
+            item_data = item_name.split(", ")
+            kong = Kongs[item_data[1]]
+            quantity = int(item_data[2])
+            self.RegularCoins[kong] += quantity
+        self.UpdateCoins()
 
     def AddArchipelagoItem(self, ap_item):
         """Add an Archipelago item to the owned items list."""
@@ -436,6 +453,16 @@ class LogicVarHolder:
             level = Levels[item_data[2]]
             quantity = int(item_data[3])
             self.ColoredBananas[level][kong] += quantity
+        elif ap_item.name.startswith("Collectible Coins"):
+            # Coins are carefully named in the following format:
+            # index 0: "Collectible Coins" - needed to identify this as a coin collectible item
+            # index 1: the Kong's name, matching the Kongs enum
+            # index 2: the quantity of coins (as a string!)
+            item_data = ap_item.name.split(", ")
+            kong = Kongs[item_data[1]]
+            quantity = int(item_data[2])
+            self.RegularCoins[kong] += quantity
+            self.UpdateCoins()
         elif ap_item.name.startswith("Event, "):
             # Event names are carefully named in the following format:
             # index 0: "Event" - needed to identify this as an Event item
@@ -461,6 +488,7 @@ class LogicVarHolder:
                     self.grab = Items.GorillaGrab in self.latest_owned_items
                     self.coconut = Items.Coconut in self.latest_owned_items
                     self.bongos = Items.Bongos in self.latest_owned_items
+                    self._recalculateBlueprints()
                 case Items.Diddy:
                     self.diddy = True
                     self.isdiddy = True
@@ -469,6 +497,7 @@ class LogicVarHolder:
                     self.spring = Items.SimianSpring in self.latest_owned_items
                     self.peanut = Items.Peanut in self.latest_owned_items
                     self.guitar = Items.Guitar in self.latest_owned_items
+                    self._recalculateBlueprints()
                 case Items.Lanky:
                     self.lanky = True
                     self.islanky = True
@@ -477,6 +506,7 @@ class LogicVarHolder:
                     self.sprint = Items.OrangstandSprint in self.latest_owned_items
                     self.grape = Items.Grape in self.latest_owned_items
                     self.trombone = Items.Trombone in self.latest_owned_items
+                    self._recalculateBlueprints()
                 case Items.Tiny:
                     self.tiny = True
                     self.istiny = True
@@ -485,6 +515,7 @@ class LogicVarHolder:
                     self.monkeyport = Items.Monkeyport in self.latest_owned_items
                     self.feather = Items.Feather in self.latest_owned_items
                     self.saxophone = Items.Saxophone in self.latest_owned_items
+                    self._recalculateBlueprints()
                 case Items.Chunky:
                     self.chunky = True
                     self.ischunky = True
@@ -493,6 +524,7 @@ class LogicVarHolder:
                     self.gorillaGone = Items.GorillaGone in self.latest_owned_items
                     self.pineapple = Items.Pineapple in self.latest_owned_items
                     self.triangle = Items.Triangle in self.latest_owned_items
+                    self._recalculateBlueprints()
                 case Items.Climbing:
                     self.climbing = True
                 case Items.Vines:
@@ -635,7 +667,7 @@ class LogicVarHolder:
                     self.BananaMedals += 1
                 case Items.BattleCrown | Items.FillerCrown:
                     self.BattleCrowns += 1
-                case Items.RainbowCoin:
+                case Items.RainbowCoin | Items.FillerRainbowCoin:
                     self.RainbowCoins += 1
                     for x in range(5):
                         self.Coins[x] += 5
@@ -657,11 +689,12 @@ class LogicVarHolder:
                 case Items.BananaHoard:
                     self.bananaHoard = True
                 case _:
-                    if corresponding_item_id >= Items.JungleJapesDonkeyBlueprint and corresponding_item_id <= Items.DKIslesChunkyBlueprint:
-                        self.Blueprints.append(corresponding_item_id)
+                    if corresponding_item_id >= Items.DonkeyBlueprint and corresponding_item_id <= Items.ChunkyBlueprint:
+                        # For generic blueprints, just recalculate totals since Update() handles the counting
+                        self._recalculateBlueprints()
                     if corresponding_item_id >= Items.JapesDonkeyHint and corresponding_item_id <= Items.CastleChunkyHint:
                         self.Hints.append(corresponding_item_id)
-                    if corresponding_item_id >= Items.PhotoBat and corresponding_item_id <= Items.PhotoBug:
+                    if (corresponding_item_id >= Items.PhotoBat and corresponding_item_id <= Items.PhotoBug) or (corresponding_item_id >= Items.PhotoBFI and corresponding_item_id <= Items.PhotoSeal):
                         self.Photos[corresponding_item_id] = 1
 
     def RemoveArchipelagoItem(self, ap_item):
@@ -678,6 +711,16 @@ class LogicVarHolder:
             level = Levels[item_data[2]]
             quantity = int(item_data[3])
             self.ColoredBananas[level][kong] -= quantity
+        elif ap_item.name.startswith("Collectible Coins"):
+            # Coins are carefully named in the following format:
+            # index 0: "Collectible Coins" - needed to identify this as a coin collectible item
+            # index 1: the Kong's name, matching the Kongs enum
+            # index 2: the quantity of coins (as a string!)
+            item_data = ap_item.name.split(", ")
+            kong = Kongs[item_data[1]]
+            quantity = int(item_data[2])
+            self.RegularCoins[kong] -= quantity
+            self.UpdateCoins()
         elif ap_item.name.startswith("Event, "):
             # Event names are carefully named in the following format:
             # index 0: "Event" - needed to identify this as an Event item
@@ -817,7 +860,7 @@ class LogicVarHolder:
         self.BananaFairies = item_counts[Items.BananaFairy] + item_counts[Items.FillerFairy]
         self.BananaMedals = item_counts[Items.BananaMedal] + item_counts[Items.FillerMedal]
         self.BattleCrowns = item_counts[Items.BattleCrown] + item_counts[Items.FillerCrown]
-        self.RainbowCoins = item_counts[Items.RainbowCoin]
+        self.RainbowCoins = item_counts[Items.RainbowCoin] + item_counts[Items.FillerRainbowCoin]
 
         self.camera = self.camera or Items.CameraAndShockwave in ownedItems or Items.Camera in ownedItems
         self.shockwave = self.shockwave or Items.CameraAndShockwave in ownedItems or Items.Shockwave in ownedItems
@@ -829,7 +872,16 @@ class LogicVarHolder:
         self.superSlam = self.Slam >= 2
         self.superDuperSlam = self.Slam >= 3
 
-        self.Blueprints = [x for x in ownedItems if x >= Items.JungleJapesDonkeyBlueprint and x <= Items.DKIslesChunkyBlueprint]
+        total_bp_count = 0
+        total_bp_count_nokong = 0
+        kong_ownership = [self.donkey, self.diddy, self.lanky, self.tiny, self.chunky]
+        bp_counts = [item_counts[Items.DonkeyBlueprint + kong] for kong in range(5)]
+        for kong in range(5):
+            if kong_ownership[kong]:
+                total_bp_count += bp_counts[kong]
+            total_bp_count_nokong += bp_counts[kong]
+        self.Blueprints = total_bp_count_nokong
+        self.BlueprintsWithKong = total_bp_count
         self.Hints = [x for x in ownedItems if x >= Items.JapesDonkeyHint and x <= Items.CastleChunkyHint]
         self.Beans = sum(1 for x in ownedItems if x == Items.Bean)
         self.Pearls = sum(1 for x in ownedItems if x in [Items.Pearl, Items.FillerPearl])
@@ -871,6 +923,12 @@ class LogicVarHolder:
             Items.PhotoBug,
             Items.PhotoKop,
             Items.PhotoTomato,
+            Items.PhotoBFI,
+            Items.PhotoIceTomato,
+            Items.PhotoMermaid,
+            Items.PhotoLlama,
+            Items.PhotoMechfish,
+            Items.PhotoSeal,
         ]
         self.Photos = {x: item_counts[x] for x in photo_subjects}
 
@@ -878,11 +936,27 @@ class LogicVarHolder:
 
         self.bananaHoard = self.bananaHoard or Items.BananaHoard in ownedItems
 
+    def _recalculateBlueprints(self):
+        """Recalculate blueprint totals based on current owned items and Kong ownership."""
+        item_counts = Counter(self.latest_owned_items)
+
+        total_bp_count = 0
+        total_bp_count_nokong = 0
+        kong_ownership = [self.donkey, self.diddy, self.lanky, self.tiny, self.chunky]
+        bp_counts = [item_counts[Items.DonkeyBlueprint + kong] for kong in range(5)]
+
+        for kong in range(5):
+            if kong_ownership[kong]:
+                total_bp_count += bp_counts[kong]
+            total_bp_count_nokong += bp_counts[kong]
+
+        self.Blueprints = total_bp_count_nokong
+        self.BlueprintsWithKong = total_bp_count
+
     def GetCoins(self, kong):
         """Get Coin Total for a kong."""
-        # In Archipelago, we will assume infinite coins in all worlds - the only snag *might* be Arcade Round 2, but there is an uninterrupted straight running line from the Arcade to 3 DK coins.
-        # self.UpdateCoins()
-        return 1000  # self.Coins[kong]
+        self.UpdateCoins()
+        return self.Coins[kong]
 
     def CanSlamSwitch(self, level: Levels, default_requirement_level: int):
         """Determine whether the player can operate the necessary slam operation.
@@ -918,7 +992,7 @@ class LogicVarHolder:
     def canAccessHelm(self) -> bool:
         """Determine whether the player can access helm whilst the timer is active."""
         if IsDDMSSelected(self.settings.hard_mode_selected, HardModeSelected.strict_helm_timer):
-            return self.snideAccess and len(self.Blueprints) > (4 + (2 * self.settings.helm_phase_count))
+            return self.snideAccess and self.Blueprints > (4 + (2 * self.settings.helm_phase_count))
         return self.snideAccess or self.assumeFillSuccess
 
     @lru_cache(maxsize=None)
@@ -1189,7 +1263,7 @@ class LogicVarHolder:
         # Create check counts dictionary
         check_counts = {
             BarrierItems.GoldenBanana: self.GoldenBananas,
-            BarrierItems.Blueprint: len(self.Blueprints),
+            BarrierItems.Blueprint: self.Blueprints,
             BarrierItems.CompanyCoin: company_coins,
             BarrierItems.Key: keys,
             BarrierItems.Medal: self.BananaMedals,
@@ -1266,7 +1340,7 @@ class LogicVarHolder:
 
     def CanFreeLanky(self):
         """Check if kong at Lanky location can be freed."""
-        return self.spoiler.LocationList[Locations.LankyKong].item == Items.NoItem or self.hasMoveSwitchsanity(Switches.AztecLlamaPuzzle)
+        return (self.swim and self.hasMoveSwitchsanity(Switches.AztecLlamaPuzzle)) or self.CanPhase() or self.CanPhaseswim()
 
     def CanFreeChunky(self):
         """Check if kong at Chunky location can be freed."""
@@ -1310,23 +1384,24 @@ class LogicVarHolder:
 
     def PurchaseShopItem(self, location_id):
         """Purchase from this location and subtract price from logical coin counts."""
-        # In Archipelago, all shops are free - we're not touching coin logic with a 12000000 ft pole
-        return
-        # location = self.spoiler.LocationList[location_id]
-        # price = GetPriceAtLocation(self.settings, location_id, location, self.Slam, self.AmmoBelts, self.InstUpgrades)
-        # if price is None:  # This shouldn't happen but it's probably harmless
-        #     return  # TODO: solve this
-        # # If shared move, take the price from all kongs EVEN IF THEY AREN'T FREED YET
-        # if location.kong == Kongs.any:
-        #     for kong in range(0, 5):
-        #         self.Coins[kong] -= price
-        #         self.SpentCoins[kong] += price
-        #     return
-        # # If kong specific move, just that kong paid for it
-        # else:
-        #     self.Coins[location.kong] -= price
-        #     self.SpentCoins[location.kong] += price
-        #     return
+        location = self.spoiler.LocationList[location_id]
+        price = GetPriceAtLocation(self.settings, location_id, location, self.Slam, self.AmmoBelts, self.InstUpgrades)
+        if price is None:  # This shouldn't happen but it's probably harmless
+            return  # TODO: solve this
+        if self.settings.shops_dont_cost:
+            # If shops don't cost anything, then don't deduct this cost
+            return
+        # If shared move, take the price from all kongs EVEN IF THEY AREN'T FREED YET
+        if location.kong == Kongs.any:
+            for kong in range(0, 5):
+                self.Coins[kong] -= price
+                self.SpentCoins[kong] += price
+            return
+        # If kong specific move, just that kong paid for it
+        else:
+            self.Coins[location.kong] -= price
+            self.SpentCoins[location.kong] += price
+            return
 
     def TimeAccess(self, region, time):
         """Check if a certain region has the given time of day access for current kong."""
@@ -1358,25 +1433,33 @@ class LogicVarHolder:
     # The current workaround also needs to check if you own the right shopkeeper
     def CanBuy(self, location, buy_empty=False):
         """Check if there are enough coins to purchase this location."""
+        # Check shopkeeper access first
         if self.spoiler.LocationList[location].vendor == VendorType.Cranky:
-            return self.crankyAccess
+            if not self.crankyAccess:
+                return False
         elif self.spoiler.LocationList[location].vendor == VendorType.Funky:
-            return self.funkyAccess
+            if not self.funkyAccess:
+                return False
         elif self.spoiler.LocationList[location].vendor == VendorType.Candy:
-            return self.candyAccess
-        return False
-        # return CanBuy(self.spoiler, location, self, buy_empty)
+            if not self.candyAccess:
+                return False
+        # Check coin requirements (shops_dont_cost only affects actual purchase, not logic)
+        return CanBuy(self.spoiler, location, self, buy_empty)
 
     def AnyKongCanBuy(self, location, buy_empty=False):
         """Check if there are enough coins for any owned kong to purchase this location."""
+        # Check shopkeeper access first
         if self.spoiler.LocationList[location].vendor == VendorType.Cranky:
-            return self.crankyAccess
+            if not self.crankyAccess:
+                return False
         elif self.spoiler.LocationList[location].vendor == VendorType.Funky:
-            return self.funkyAccess
+            if not self.funkyAccess:
+                return False
         elif self.spoiler.LocationList[location].vendor == VendorType.Candy:
-            return self.candyAccess
-        return False
-        # return AnyKongCanBuy(self.spoiler, location, self, buy_empty)
+            if not self.candyAccess:
+                return False
+        # Check coin requirements (shops_dont_cost only affects actual purchase, not logic)
+        return AnyKongCanBuy(self.spoiler, location, self, buy_empty)
 
     def CanAccessKRool(self):
         """Make sure that each required key has been turned in."""
@@ -1646,6 +1729,8 @@ class LogicVarHolder:
         elif self.settings.win_condition_item == WinConditionComplex.krools_challenge:
             # Krool's Challenge: Beat K. Rool + collect all Keys, Blueprints, Bosses, and Bonus Barrels
             return Events.KRoolDefeated in self.Events and self.ItemCheck(BarrierItems.Key, 8) and self.ItemCheck(BarrierItems.Blueprint, 40) and self.bosses_beaten >= 7 and self.bonuses_beaten >= 43
+        elif self.settings.win_condition_item == WinConditionComplex.kill_the_rabbit:
+            return Events.KilledRabbit in self.Events
         elif self.settings.win_condition_item == WinConditionComplex.req_bosses:
             return self.bosses_beaten >= self.settings.win_condition_count
         elif self.settings.win_condition_item == WinConditionComplex.req_bonuses:
@@ -1681,6 +1766,11 @@ class LogicVarHolder:
         is_correct_kong = self.istiny or self.settings.free_trade_items
         required_level_order = max(2, min(ceil(self.settings.rareware_gb_fairies / 2), 5))  # At least level 2 to give space for fairy placements, at most level 5 to allow shenanigans
         return have_enough_fairies and is_correct_kong and self.HasFillRequirementsForLevel(self.settings.level_order[required_level_order])
+
+    def CanGetBlueprintReward(self, value):
+        """Check if you have sufficient access to a Blueprint reward location."""
+        # Archipelago keeps it simple - no need for a buffer
+        return self.BlueprintsWithKong >= value
 
     def CanSurviveFallDamage(self):
         """Check if you can survive a single instance of fall damage."""
