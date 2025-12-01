@@ -28,6 +28,7 @@ from randomizer.Enums.Settings import (
     PuzzleRando,
     ProgressiveHintItem,
     RandomPrices,
+    RandomStartingRegion,
     ShockwaveStatus,
     ShuffleLoadingZones,
     ShufflePortLocations,
@@ -403,8 +404,8 @@ class Spoiler:
         settings["Lanky Model"] = self.settings.kong_model_lanky.name
         settings["Tiny Model"] = self.settings.kong_model_tiny.name
         settings["Chunky Model"] = self.settings.kong_model_chunky.name
-
-        settings["Key 8 Required"] = self.settings.krool_access
+        settings["Model Swap Mode"] = self.settings.kong_model_mode.name
+        settings["Don't Start with Key 8"] = self.settings.krool_access
         settings["Vanilla K. Rool Requirement"] = self.settings.k_rool_vanilla_requirement
         settings["Key 8 in Helm"] = self.settings.key_8_helm
         settings["Select Starting Keys"] = self.settings.select_keys
@@ -478,9 +479,8 @@ class Spoiler:
                     humanspoiler["Spoiler Hints Data"][key] = self.level_spoiler[key].toJSON()
             humanspoiler["Spoiler Hints"] = self.level_spoiler_human_readable
         humanspoiler["Requirements"] = {}
-        if self.settings.random_starting_region:
+        if self.settings.random_starting_region_new != RandomStartingRegion.off:
             humanspoiler["Game Start"] = {}
-            humanspoiler["Game Start"]["Starting Kong List"] = startKongList
             humanspoiler["Game Start"]["Starting Region"] = self.settings.starting_region["region_name"]
             humanspoiler["Game Start"]["Starting Exit"] = self.settings.starting_region["exit_name"]
         # GB Counts

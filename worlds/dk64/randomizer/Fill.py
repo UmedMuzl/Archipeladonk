@@ -38,6 +38,7 @@ from randomizer.Enums.Settings import (
     MoveRando,
     ProgressiveHintItem,
     RandomPrices,
+    RandomStartingRegion,
     RandomRequirement,
     RemovedBarriersSelected,
     ShockwaveStatus,
@@ -418,7 +419,7 @@ def GetAccessibleLocations(
                             if levelExitTransitionId not in spoiler.playthroughTransitionOrder:
                                 spoiler.playthroughTransitionOrder.append(levelExitTransitionId)
                 # If loading zones are not shuffled but you have a random starting location, you may need to exit level to escape some regions
-                elif settings.random_starting_region and region.level != Levels.DKIsles and region.level != Levels.Shops and region.restart is None:
+                elif settings.random_starting_region_new == RandomStartingRegion.all and region.level != Levels.DKIsles and region.level != Levels.Shops and region.restart is None:
                     levelLobby = GetLobbyOfRegion(region.level)
                     if levelLobby is not None and levelLobby not in kongAccessibleRegions[kong]:
                         exits.append(TransitionFront(levelLobby, lambda _: True))
@@ -443,7 +444,7 @@ def GetAccessibleLocations(
 
                     # Handle water/lava restrictions
                     is_lava_water = spoiler.LogicVariables.IsLavaWater()
-                    if is_lava_water and (settings.shuffle_loading_zones == ShuffleLoadingZones.all or settings.random_starting_region):
+                    if is_lava_water and (settings.shuffle_loading_zones == ShuffleLoadingZones.all or settings.random_starting_region_new != RandomStartingRegion.off):
                         if destination in UnderwaterRegions and spoiler.LogicVariables.Melons < 3:
                             continue
                         if destination in SurfaceWaterRegions and spoiler.LogicVariables.Melons < 2:
@@ -1394,13 +1395,107 @@ def CalculateFoolish(spoiler: Spoiler, WothLocations: List[Union[Locations, int]
         # Ban shops from region count hinting. These are significantly worse regions to hint than any others.
         if not region.isShopRegion() and region.hint_name not in neverHintableNames:
             # Count the number of region count hintable items in the region (again, ignore training moves)
-            regionItemCount = sum(1 for loc in locations if loc.type not in (Types.TrainingBarrel, Types.PreGivenMove, Types.Climbing) and loc.item in regionCountHintableItems)
-            if regionItemCount > 0:
-                # If we need to create a new entry due to this region, do so
-                if region.hint_name not in spoiler.region_hintable_count.keys():
-                    spoiler.region_hintable_count[region.hint_name] = 0
-                # Keep a running tally of found vials in each region
-                spoiler.region_hintable_count[region.hint_name] += regionItemCount
+            region_items = [
+                {
+                    "name": "Potion",
+                    "plural": "Potions",
+                    "count": sum(1 for loc in locations if loc.type not in (Types.TrainingBarrel, Types.PreGivenMove, Types.Climbing) and loc.item in regionCountHintableItems),
+                }
+            ]
+            win_con_items = {
+                WinConditionComplex.krools_challenge: [
+                    {
+                        "name": "Blueprint",
+                        "plural": "Blueprints",
+                        "items": [Items.DonkeyBlueprint, Items.DiddyBlueprint, Items.LankyBlueprint, Items.TinyBlueprint, Items.ChunkyBlueprint],
+                    }
+                ],
+                WinConditionComplex.req_bean: [
+                    {
+                        "name": "Bean",
+                        "plural": "Beans",
+                        "items": [Items.Bean],
+                    }
+                ],
+                WinConditionComplex.req_bp: [
+                    {
+                        "name": "Blueprint",
+                        "plural": "Blueprints",
+                        "items": [Items.DonkeyBlueprint, Items.DiddyBlueprint, Items.LankyBlueprint, Items.TinyBlueprint, Items.ChunkyBlueprint],
+                    }
+                ],
+                WinConditionComplex.req_companycoins: [
+                    {
+                        "name": "Company Coin",
+                        "plural": "Company Coins",
+                        "items": [Items.NintendoCoin, Items.RarewareCoin],
+                    }
+                ],
+                WinConditionComplex.req_crown: [
+                    {
+                        "name": "Crown",
+                        "plural": "Crowns",
+                        "items": [Items.BattleCrown, Items.FillerCrown],
+                    }
+                ],
+                WinConditionComplex.req_fairy: [
+                    {
+                        "name": "Fairy",
+                        "plural": "Fairies",
+                        "items": [Items.BananaFairy, Items.FillerFairy],
+                    }
+                ],
+                WinConditionComplex.req_gb: [
+                    {
+                        "name": "Golden Banana",
+                        "plural": "Golden Bananas",
+                        "items": [Items.GoldenBanana, Items.FillerBanana],
+                    }
+                ],
+                WinConditionComplex.req_medal: [
+                    {
+                        "name": "Medal",
+                        "plural": "Medals",
+                        "items": [Items.BananaMedal, Items.FillerMedal],
+                    }
+                ],
+                WinConditionComplex.req_pearl: [
+                    {
+                        "name": "Pearl",
+                        "plural": "Pearls",
+                        "items": [Items.Pearl, Items.FillerPearl],
+                    }
+                ],
+                WinConditionComplex.req_rainbowcoin: [
+                    {
+                        "name": "Rainbow Coin",
+                        "plural": "Rainbow Coins",
+                        "items": [Items.RainbowCoin, Items.FillerRainbowCoin],
+                    }
+                ],
+            }
+            if spoiler.settings.win_condition_item in win_con_items:
+                win_con_data = win_con_items[spoiler.settings.win_condition_item]
+                for data in win_con_data:
+                    region_items.append(
+                        {
+                            "name": data["name"],
+                            "plural": data["plural"],
+                            "count": sum(1 for loc in locations if loc.type not in (Types.TrainingBarrel, Types.PreGivenMove, Types.Climbing) and loc.item in data["items"]),
+                        }
+                    )
+            for region_item in region_items:
+                if region_item["count"] > 0:
+                    # If we need to create a new entry due to this region, do so
+                    if region.hint_name not in spoiler.region_hintable_count.keys():
+                        spoiler.region_hintable_count[region.hint_name] = {region_item["name"]: {"plural": region_item["plural"], "count": 0}}
+                    if region_item["name"] not in spoiler.region_hintable_count[region.hint_name]:
+                        spoiler.region_hintable_count[region.hint_name][region_item["name"]] = {
+                            "plural": region_item["plural"],
+                            "count": 0,
+                        }
+                    # Keep a running tally of found vials in each region
+                    spoiler.region_hintable_count[region.hint_name][region_item["name"]]["count"] += region_item["count"]
     # The regions that are foolish are all regions not in this list (that have locations in them!)
     spoiler.foolish_region_names = list(set([region.hint_name for id, region in spoiler.RegionList.items() if any(region.locations) and region.hint_name not in nonHintableNames]))
 
@@ -2030,7 +2125,7 @@ def FillBossLocations(spoiler: Spoiler, placed_types: List[Types], placed_items:
             unplaced_items.remove(item)
     debug_failed_to_place_items = []
     possible_items = [item for item in unplaced_items]
-    spoiler.settings.random.shuffle(unplaced_items)
+    spoiler.settings.random.shuffle(possible_items)
     # Until we have placed enough items...
     while len(placed_on_bosses) < len(empty_boss_locations):
         if len(possible_items) == 0:
@@ -2454,18 +2549,13 @@ def Fill(spoiler: Spoiler) -> None:
         Types.FillerPearl,
         Types.FillerMedal,
         Types.FillerRainbowCoin,
+        Types.JunkItem,
     ]
     filler_types_in_pool = [x for x in filler_types if x in spoiler.settings.shuffled_location_types]
     if len(filler_types_in_pool) > 0:
         placed_types.extend(filler_types_in_pool)
         spoiler.Reset()
         PlaceItems(spoiler, FillAlgorithm.random, ItemPool.FillerItems(spoiler.settings), [])
-    # Fill in junk items
-    if Types.JunkItem in spoiler.settings.shuffled_location_types:
-        placed_types.append(Types.JunkItem)
-        spoiler.Reset()
-        PlaceItems(spoiler, FillAlgorithm.random, ItemPool.JunkItems(), [])
-        # Don't raise exception if unplaced junk items
     if Types.CrateItem in spoiler.settings.shuffled_location_types:
         placed_types.append(Types.CrateItem)
         # Crates hold nothing, so leave this one empty
@@ -3028,7 +3118,7 @@ def FillWorld(spoiler: Spoiler) -> None:
             # Every 3rd fill, retry more aggressively by reshuffling level order, move prices, and starting location as applicable
             if retries % 3 == 0:
                 js.postMessage("Retrying fill really hard. Tries: " + str(retries))
-                if spoiler.settings.random_starting_region:
+                if spoiler.settings.random_starting_region_new != RandomStartingRegion.off:
                     spoiler.settings.RandomizeStartingLocation(spoiler)
                 if spoiler.settings.shuffle_loading_zones == ShuffleLoadingZones.levels:  # TODO: Reshuffling LZR doesn't work yet, but it might be nice? Not sure how necessary it is
                     ShuffleExits.ShuffleExits(spoiler)
@@ -4044,7 +4134,7 @@ def CheckForIncompatibleSettings(settings: Settings) -> None:
     if not settings.fast_start_beginning_of_game:
         if settings.shuffle_loading_zones == ShuffleLoadingZones.all:
             found_incompatibilities += "Cannot turn off Fast Start with Loading Zones Randomized. "
-        if settings.random_starting_region:
+        if settings.random_starting_region_new != RandomStartingRegion.off:
             found_incompatibilities += "Cannot turn off Fast Start with a Random Starting Location. "
         if not settings.start_with_slam:
             found_incompatibilities += "Cannot turn off Fast Start unless you are guaranteed to start with a Progressive Slam. "
