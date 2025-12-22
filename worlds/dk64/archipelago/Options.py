@@ -37,7 +37,7 @@ class Goal(Choice):
     - pearls: Find a certain number of Pearls to win. See goal_quantity option for more info.
     - bosses: Defeat a certain number of bosses to win. See goal_quantity option for more info.
     - bonuses: Complete a certain number of Bonus Barrels to win. Automatically disables auto_complete_bonus_barrels if set. See goal_quantity option for more info.
-    - treasure_hurry: Run down the timer by collecting treasure! You win when the timer reaches 0.
+    - treasure_hurry: Run down the timer by collecting treasure! You win when the timer reaches 0. If you beat Helm, the wincon automatically changes to beating K. Rool.
     - krools_challenge: K. Rool's ship does not spawn until you collect All keys, Defeat All bosses, Play all Bonus Barrels, and collect All Blueprints.
     - kill_the_rabbit: Kill the rabbit in Chunky's igloo in Caves. Turn it to Ash. Simple as that.
     """
@@ -408,7 +408,6 @@ class LogicType(Choice):
     glitchless: Logic is designed to be completed without glitches, mostly as intended by the developers.
     advanced_glitchless: Logic is designed to be completed without glitches, but allows for advanced techniques. Add tricks you want to put in logic in tricks_selected.
     glitched: Logic is designed to be completed with glitches. Add tricks you want to put in logic in tricks_selected, AND add glitches you want to put in logic in glitches_selected.
-    minimal: Minimal logic with basic restrictions to prevent softlocks. Does not check full reachability.
     """
 
     display_name = "Logic Type"
@@ -416,7 +415,6 @@ class LogicType(Choice):
     option_glitchless = 1
     option_advanced_glitchless = 0
     option_glitched = 2
-    option_minimal = 4
     default = 1
 
 

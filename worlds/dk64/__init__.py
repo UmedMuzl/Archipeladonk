@@ -999,24 +999,19 @@ if baseclasses_loaded:
                                 option_key = blocker_key
                                 self.seed_groups[group][blocker_key] = min(self.seed_groups[group][blocker_key], int(getattr(world.options, option_key).value))
 
-                            # logic_type: use most restrictive
-                            # Priority order (most to least restrictive): minimal (4) > glitchless (1) > advanced_glitchless (0) > glitched (2)
+                            # logic_type: use most restrictive (glitchless=1 > advanced_glitchless=0 > glitched=2)
+                            # Priority order: glitchless (1) is most restrictive, then advanced_glitchless (0), then glitched (2)
                             current_logic = self.seed_groups[group]["logic_type"]
                             new_logic = int(world.options.logic_type.value)
 
-                            # Minimal (4) is always most restrictive
-                            if new_logic == 4:
-                                self.seed_groups[group]["logic_type"] = 4
-                            # If current is not minimal, update based on other priorities
-                            elif current_logic != 4:
-                                # If current is glitched (2) and new is glitchless or advanced_glitchless, use new (more restrictive)
-                                if current_logic == 2 and new_logic in (0, 1):
-                                    self.seed_groups[group]["logic_type"] = new_logic
-                                # If current is advanced_glitchless (0) and new is glitchless (1), use glitchless
-                                elif current_logic == 0 and new_logic == 1:
-                                    self.seed_groups[group]["logic_type"] = 1
-                            # If current is minimal or glitchless, keep it (most restrictive)
-                            # If new is glitched (2) or advanced_glitchless (0) with more restrictive current, keep current
+                            # If current is glitched (2) and new is anything else, use new (more restrictive)
+                            if current_logic == 2 and new_logic != 2:
+                                self.seed_groups[group]["logic_type"] = new_logic
+                            # If current is advanced_glitchless (0) and new is glitchless (1), use glitchless
+                            elif current_logic == 0 and new_logic == 1:
+                                self.seed_groups[group]["logic_type"] = 1
+                            # If current is glitchless (1), keep it (most restrictive)
+                            # If new is glitched (2), keep current (more restrictive)
 
                             # tricks_selected: intersection of all players' tricks (only tricks ALL players have)
                             self.seed_groups[group]["tricks_selected"] = self.seed_groups[group]["tricks_selected"].intersection(set(world.options.tricks_selected.value))
