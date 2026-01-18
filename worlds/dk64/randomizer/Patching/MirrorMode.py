@@ -56,6 +56,25 @@ def ApplyMirrorMode(settings: Settings, ROM_COPY: LocalROM):
             FlipDisplayList(ROM_COPY, data, dl_start, dl_end, tbl, file_index)
 
 
+def trimData(data: bytes, alignment: int = 0x10) -> bytes:
+    """Trim a bytes object to remove trailing null bytes, and then align the size of the object to a certain modulo."""
+    if alignment <= 0:
+        raise ValueError("alignment must be positive")
+
+    i = len(data) - 1
+    while i >= 0 and data[i] == 0:
+        i -= 1
+    if i < 0:
+        return b""
+    trimmed = data[: i + 1]
+
+    pad = (-len(trimmed)) % alignment
+    if pad:
+        trimmed += b"\x00" * pad
+
+    return trimmed
+
+
 def truncateFiles(ROM_COPY: ROM):
     """Truncate the size of compressed files."""
     start = time.perf_counter()
@@ -79,7 +98,7 @@ def truncateFiles(ROM_COPY: ROM):
             # These tables are always uncompressed, ignore
             continue
         if table_id in (TableNames.MapWalls, TableNames.MapFloors):
-            # messing with these tables causes issues. Ignoring
+            # messing with these tables causes the game to take a hard angry nap
             continue
         ROM_COPY.seek(POINTER_OFFSET + (32 * 4) + (table_id * 4))
         entry_count = int.from_bytes(ROM_COPY.readBytes(4), "big")
@@ -103,6 +122,9 @@ def truncateFiles(ROM_COPY: ROM):
                 truncated_data = gzip.compress(zlib.decompress(data, (15 + 32)), compresslevel=9)
                 if len(data) != len(truncated_data):
                     please_shift = True
+            elif table_id == TableNames.MusicMIDI:
+                truncated_data = trimData(data, 0x10)
+                please_shift = True
             else:
                 truncated_data = data
             files.append(truncated_data)
