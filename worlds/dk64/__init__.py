@@ -15,7 +15,6 @@ import sys
 import tempfile
 from typing import Any, TypedDict
 
-
 baseclasses_loaded = False
 try:
     # DO NOT DO IMPORTS FOR AP BEFORE THIS OR IN THIS BLOCK
@@ -277,7 +276,15 @@ if baseclasses_loaded:
             If you want a specific version, you can set it to a AP version number eg: v1.0.45
             """
 
+        class EnableMinimalLogic(settings.Bool):
+            """Enable minimal logic for DK64.
+
+            If disabled, any player YAML with minimal logic enabled will be forced to use glitchless logic instead.
+            This allows hosts to disable the minimal logic option if they don't want it on their server.
+            """
+
         release_branch: ReleaseVersion = ReleaseVersion("master")
+        enable_minimal_logic_dk64: EnableMinimalLogic | bool = False
 
     class DK64Web(WebWorld):
         """WebWorld for DK64."""
@@ -949,6 +956,23 @@ if baseclasses_loaded:
 
         def generate_early(self):
             """Generate the world."""
+            # Check host setting for minimal logic and force glitchless if disabled
+            if not self.settings.enable_minimal_logic_dk64:
+                dk64_worlds_for_minimal_check: tuple[DK64World] = self.multiworld.get_game_worlds("Donkey Kong 64")
+                affected_players = []
+                for world in dk64_worlds_for_minimal_check:
+                    if world.options.logic_type.value == 4:  # 4 = minimal logic
+                        affected_players.append(world.player_name)
+                        world.options.logic_type.value = 1  # Force to glitchless
+
+                if affected_players:
+                    import logging
+
+                    logging.warning(
+                        f"DK64: Minimal logic is DISABLED in host.yaml. "
+                        f"The following player(s) have tried to sneak Minimal Logic in: {', '.join(affected_players)}. As such, they have been forced to use glitchless logic."
+                    )
+
             # Handle seed group synchronization for custom LZR seed groups
             # We need to process ALL DK64 worlds to build/update seed groups before any player applies settings
             dk64_worlds: tuple[DK64World] = self.multiworld.get_game_worlds("Donkey Kong 64")
@@ -1930,6 +1954,13 @@ if baseclasses_loaded:
                     if self.spoiler.settings.level_randomization == LevelRandomization.loadingzone and self.spoiler.shuffled_exit_data
                     else {}
                 ),
+                "KongModels": {
+                    "DK": self.spoiler.settings.kong_model_dk.name,
+                    "Diddy": self.spoiler.settings.kong_model_diddy.name,
+                    "Lanky": self.spoiler.settings.kong_model_lanky.name,
+                    "Tiny": self.spoiler.settings.kong_model_tiny.name,
+                    "Chunky": self.spoiler.settings.kong_model_chunky.name,
+                },
             }
             return slot_data
 
@@ -2277,6 +2308,12 @@ if baseclasses_loaded:
             # Added entrance randomization data
             entrance_rando = slot_data.get("EntranceRando", [])
 
+            # Added Krusha kong models
+            if self.version_check(version, "2.0.0"):
+                kong_models = slot_data.get("KongModels", {})
+            else:
+                kong_models = {}
+
             relevant_data = {}
             relevant_data["LevelOrder"] = dict(enumerate([Levels[level] for level in level_order], start=1))
             relevant_data["StartingKongs"] = [Kongs[kong] for kong in starting_kongs]
@@ -2326,4 +2363,5 @@ if baseclasses_loaded:
             relevant_data["ShopPrices"] = shop_prices
             relevant_data["EntranceRando"] = entrance_rando
             relevant_data["GalleonWater"] = galleon_water
+            relevant_data["KongModels"] = kong_models
             return relevant_data
