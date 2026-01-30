@@ -989,7 +989,7 @@ if baseclasses_loaded:
                                 enable_chaos_blockers=bool(world.options.enable_chaos_blockers.value),
                                 randomize_blocker_required_amounts=bool(world.options.randomize_blocker_required_amounts.value),
                                 blocker_max=int(world.options.blocker_max.value),
-                                maximize_helm_blocker=bool(world.options.maximize_helm_blocker.value),
+                                maximize_helm_blocker=bool(world.options.maximize_level8_blocker.value),
                                 level_blockers={
                                     "level_1": int(world.options.level_blockers.value.get("level_1", 0)),
                                     "level_2": int(world.options.level_blockers.value.get("level_2", 0)),
@@ -1023,14 +1023,14 @@ if baseclasses_loaded:
                             self.seed_groups[group]["blocker_max"] = min(self.seed_groups[group]["blocker_max"], int(world.options.blocker_max.value))
 
                             # maximize_helm_blocker: if any player has it enabled, enable it for the group
-                            if world.options.maximize_helm_blocker.value:
+                            if world.options.maximize_level8_blocker.value:
                                 self.seed_groups[group]["maximize_helm_blocker"] = True
 
                             # level blockers: use the lowest value in the group for each
                             for level_num in range(1, 9):
-                                blocker_key = f"level{level_num}_blocker"
-                                option_key = blocker_key
-                                self.seed_groups[group][blocker_key] = min(self.seed_groups[group][blocker_key], int(getattr(world.options, option_key).value))
+                                blocker_key = f"level_{level_num}"
+                                option_key = "level_blockers"
+                                self.seed_groups[group][option_key][blocker_key] = min(self.seed_groups[group][option_key][blocker_key], int(getattr(world.options, option_key)[blocker_key]))
 
                             # logic_type: use most restrictive (glitchless=1 > advanced_glitchless=0 > glitched=2)
                             # Priority order: glitchless (1) is most restrictive, then advanced_glitchless (0), then glitched (2)
@@ -1065,7 +1065,7 @@ if baseclasses_loaded:
                         self.options.enable_chaos_blockers.value = int(self.seed_groups[group]["enable_chaos_blockers"])
                         self.options.randomize_blocker_required_amounts.value = int(self.seed_groups[group]["randomize_blocker_required_amounts"])
                         self.options.blocker_max.value = self.seed_groups[group]["blocker_max"]
-                        self.options.maximize_helm_blocker.value = int(self.seed_groups[group]["maximize_helm_blocker"])
+                        self.options.maximize_level8_blocker.value = int(self.seed_groups[group]["maximize_helm_blocker"])
                         self.options.level_blockers.value = self.seed_groups[group]["level_blockers"]
 
                         # Create group random for LZR seed synchronization and replace self.random
@@ -1133,14 +1133,14 @@ if baseclasses_loaded:
                             self.seed_groups[group]["blocker_max"] = min(self.seed_groups[group]["blocker_max"], int(world.options.blocker_max.value))
 
                             # maximize_helm_blocker: if any player has it enabled, enable it for the group
-                            if world.options.maximize_helm_blocker.value:
+                            if world.options.maximize_level8_blocker.value:
                                 self.seed_groups[group]["maximize_helm_blocker"] = True
 
                             # level blockers: use the lowest value in the group for each
                             for level_num in range(1, 9):
-                                blocker_key = f"level{level_num}_blocker"
-                                option_key = blocker_key
-                                self.seed_groups[group][blocker_key] = min(self.seed_groups[group][blocker_key], int(getattr(world.options, option_key).value))
+                                blocker_key = f"level_{level_num}"
+                                option_key = "level_blockers"
+                                self.seed_groups[group][option_key][blocker_key] = min(self.seed_groups[group][option_key][blocker_key], int(getattr(world.options, option_key)[blocker_key]))
 
             # Apply seed group settings and create group random if using a custom seed group BEFORE fillsettings
             self.group_random = None
@@ -1154,7 +1154,7 @@ if baseclasses_loaded:
                         self.options.enable_chaos_blockers.value = int(self.seed_groups[group]["enable_chaos_blockers"])
                         self.options.randomize_blocker_required_amounts.value = int(self.seed_groups[group]["randomize_blocker_required_amounts"])
                         self.options.blocker_max.value = self.seed_groups[group]["blocker_max"]
-                        self.options.maximize_helm_blocker.value = int(self.seed_groups[group]["maximize_helm_blocker"])
+                        self.options.maximize_level8_blocker.value = int(self.seed_groups[group]["maximize_helm_blocker"])
                         self.options.level_blockers.value = self.seed_groups[group]["level_blockers"]
 
                         # Apply synchronized logic and glitch settings
@@ -1320,7 +1320,7 @@ if baseclasses_loaded:
         def connect_entrances(self) -> None:
             """Randomize and connect entrances if LZR is on."""
             LinkWarps(self.spoiler)  # I am very skeptical that this works at all - must be resolved if we want to do more than Isles warps preactivated
-            connect_regions(self, self.spoiler.settings, self.spoiler)
+            connect_regions(self, self.spoiler.settings)
 
             if (
                 self.options.loading_zone_rando.value not in [0, LoadingZoneRando.option_no]
@@ -1954,29 +1954,6 @@ if baseclasses_loaded:
                     if self.spoiler.settings.level_randomization == LevelRandomization.loadingzone and self.spoiler.shuffled_exit_data
                     else {}
                 ),
-                "KongModels": {
-                    "DK": self.spoiler.settings.kong_model_dk.name,
-                    "Diddy": self.spoiler.settings.kong_model_diddy.name,
-                    "Lanky": self.spoiler.settings.kong_model_lanky.name,
-                    "Tiny": self.spoiler.settings.kong_model_tiny.name,
-                    "Chunky": self.spoiler.settings.kong_model_chunky.name,
-                },
-                "StartingRegion": (
-                    {
-                        "region": self.spoiler.settings.starting_region["region"].name if hasattr(self.spoiler.settings.starting_region["region"], "name") else str(self.spoiler.settings.starting_region["region"]),
-                        "map": self.spoiler.settings.starting_region["map"].name if hasattr(self.spoiler.settings.starting_region["map"], "name") else str(self.spoiler.settings.starting_region["map"]),
-                        "exit": self.spoiler.settings.starting_region["exit"],
-                        "region_name": self.spoiler.settings.starting_region["region_name"],
-                        "exit_name": self.spoiler.settings.starting_region["exit_name"],
-                    }
-                    if hasattr(self.spoiler.settings, "starting_region") and self.spoiler.settings.starting_region
-                    else {}
-                ),
-                "DKPortalLocations": (
-                    self.spoiler.human_entry_doors
-                    if hasattr(self.spoiler, "human_entry_doors") and self.spoiler.human_entry_doors
-                    else {}
-                ),
             }
             return slot_data
 
@@ -1996,16 +1973,6 @@ if baseclasses_loaded:
             spoiler_handle.write("\n")
             spoiler_handle.write("Starting Kongs: " + ", ".join([kong.name for kong in self.spoiler.settings.starting_kong_list]))
             spoiler_handle.write("\n")
-            if hasattr(self.spoiler.settings, "starting_region") and self.spoiler.settings.starting_region:
-                spoiler_handle.write(f"Starting Region: {self.spoiler.settings.starting_region['region_name']} ({self.spoiler.settings.starting_region['exit_name']})")
-                spoiler_handle.write("\n")
-            if hasattr(self.spoiler, "human_entry_doors") and self.spoiler.human_entry_doors:
-                spoiler_handle.write("DK Portal Locations:")
-                spoiler_handle.write("\n")
-                for level, location in self.spoiler.human_entry_doors.items():
-                    if location != "Vanilla":
-                        spoiler_handle.write(f"  {level}: {location}")
-                        spoiler_handle.write("\n")
             spoiler_handle.write("Helm Order: " + ", ".join([Kongs(room).name for room in self.spoiler.settings.helm_order]))
             spoiler_handle.write("\n")
             spoiler_handle.write("K. Rool Order: " + ", ".join([phase.name for phase in self.spoiler.settings.krool_order]))
@@ -2334,16 +2301,6 @@ if baseclasses_loaded:
             # Added entrance randomization data
             entrance_rando = slot_data.get("EntranceRando", [])
 
-            # Added Krusha kong models
-            if self.version_check(version, "2.0.0"):
-                kong_models = slot_data.get("KongModels", {})
-            else:
-                kong_models = {}
-
-            # Added starting region and DK portal locations
-            starting_region = slot_data.get("StartingRegion", {})
-            dk_portal_locations = slot_data.get("DKPortalLocations", {})
-
             relevant_data = {}
             relevant_data["LevelOrder"] = dict(enumerate([Levels[level] for level in level_order], start=1))
             relevant_data["StartingKongs"] = [Kongs[kong] for kong in starting_kongs]
@@ -2393,7 +2350,4 @@ if baseclasses_loaded:
             relevant_data["ShopPrices"] = shop_prices
             relevant_data["EntranceRando"] = entrance_rando
             relevant_data["GalleonWater"] = galleon_water
-            relevant_data["KongModels"] = kong_models
-            relevant_data["StartingRegion"] = starting_region
-            relevant_data["DKPortalLocations"] = dk_portal_locations
             return relevant_data
