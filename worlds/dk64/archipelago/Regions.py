@@ -111,6 +111,14 @@ def create_regions(multiworld: MultiWorld, player: int, spoiler: Spoiler, option
     # okay okay OKAY you get a logicVarHolder object for JUST THIS ONCE. Codes these days...
     logic_holder = LogicVarHolder(spoiler, player)
 
+    # Build location table from spoiler's LocationList (which may have custom locations)
+    all_locations_dynamic = {
+        spoiler.LocationList[location].name: (BASE_ID + index)
+        for index, location in enumerate(DK64RLocation.LocationListOriginal)
+        if spoiler.LocationList[location].type != Types.EnemyPhoto
+    }
+    all_locations_dynamic.update({"Victory": 0x00})  # Temp for generating goal location
+
     # Pick random 10 shops to make shared
     # Only if shared shops are enabled in settings
     if options.enable_shared_shops.value:
@@ -126,8 +134,8 @@ def create_regions(multiworld: MultiWorld, player: int, spoiler: Spoiler, option
         shared_shop_vendors = set()
 
         # Pre-process to identify which vendor/level combinations will have shared shops
-        for region_id in all_logic_regions:
-            region_obj = all_logic_regions[region_id]
+        for region_id in logic_holder.spoiler.RegionList:
+            region_obj = logic_holder.spoiler.RegionList[region_id]
             location_logics = [loc for loc in region_obj.locations if (not loc.isAuxiliaryLocation) or region_id.name == "FactoryBaboonBlast"]
 
             for location_logic in location_logics:
@@ -150,8 +158,8 @@ def create_regions(multiworld: MultiWorld, player: int, spoiler: Spoiler, option
     # for location_name, location_id in all_locations.items():
     #     print(f"{location_name}: {location_id}")
 
-    for region_id in all_logic_regions:
-        region_obj = all_logic_regions[region_id]
+    for region_id in logic_holder.spoiler.RegionList:
+        region_obj = logic_holder.spoiler.RegionList[region_id]
         # Filtering out auxiliary locations is detrimental to glitch logic, but is necessary to ensure each location placed exactly once
         location_logics = [loc for loc in region_obj.locations if (not loc.isAuxiliaryLocation) or region_id.name == "FactoryBaboonBlast"]
         # V1 LIMITATION: Helm must be skip_start
@@ -171,16 +179,17 @@ def create_regions(multiworld: MultiWorld, player: int, spoiler: Spoiler, option
             if (region_id == Regions.HideoutHelmEntry and spoiler.settings.helm_chunky) or (region_id == Regions.HideoutHelmChunkyRoom and not spoiler.settings.helm_chunky):
                 location_logics = [loc for loc in location_logics if loc.id not in (Locations.HelmChunky1, Locations.HelmChunky2)]
         collectibles = []
-        if region_id in all_collectible_regions.keys():
+        # Use spoiler.CollectibleRegions which reflects CB randomization if enabled
+        if region_id in logic_holder.spoiler.CollectibleRegions.keys():
             collectible_types = [Collectibles.bunch, Collectibles.banana, Collectibles.balloon]
             collectible_types.append(Collectibles.coin)
-            collectibles = [col for col in all_collectible_regions[region_id] if col.type in collectible_types]
+            collectibles = [col for col in logic_holder.spoiler.CollectibleRegions[region_id] if col.type in collectible_types]
         events = [event for event in region_obj.events]
 
         # if region_obj.level == Levels.Shops:
-        #     multiworld.regions.append(create_shop_region(multiworld, player, region_id.name, region_obj, location_logics, spoiler.settings))
+        #     multiworld.regions.append(create_shop_region(multiworld, player, region_id.name, region_obj, location_logics, spoiler.settings, all_locations_dynamic))
         # else:
-        multiworld.regions.append(create_region(multiworld, player, region_id.name, region_obj.level, location_logics, collectibles, events, logic_holder))
+        multiworld.regions.append(create_region(multiworld, player, region_id.name, region_obj.level, location_logics, collectibles, events, logic_holder, all_locations_dynamic))
 
 
 def create_region(
@@ -192,6 +201,7 @@ def create_region(
     collectibles: typing.List[Collectible],
     events: typing.List[Event],
     logic_holder: LogicVarHolder,
+    all_locations_dynamic: typing.Dict[str, int],
 ) -> Region:
     """Create a region for the given player's world."""
     new_region = Region(region_name, player, multiworld)
@@ -239,7 +249,7 @@ def create_region(
             # Skip locations marked as inaccessible by smaller shops
             if hasattr(location_obj, "smallerShopsInaccessible") and location_obj.smallerShopsInaccessible and logic_holder.settings.smaller_shops:
                 continue
-            loc_id = all_locations.get(location_obj.name, 0)
+            loc_id = all_locations_dynamic.get(location_obj.name, 0)
             # Universal Tracker: don't add this location if it has no item
             if hasattr(multiworld, "generation_is_fake"):
                 if hasattr(multiworld, "re_gen_passthrough"):
@@ -503,7 +513,7 @@ def create_region(
 
 
 # CURRENTLY UNUSED - for some reason some Lanky shops are inaccessible??
-def create_shop_region(multiworld: MultiWorld, player: int, region_name: str, region_obj: DK64Region, location_logics: typing.List[LocationLogic], settings: Settings) -> Region:
+def create_shop_region(multiworld: MultiWorld, player: int, region_name: str, region_obj: DK64Region, location_logics: typing.List[LocationLogic], settings: Settings, all_locations_dynamic: typing.Dict[str, int]) -> Region:
     """Create a region for the given player's world."""
     # Shop regions have relatively straightforward logic that can be streamlined for performance purposes
     new_region = Region(region_name, player, multiworld)
@@ -513,14 +523,14 @@ def create_shop_region(multiworld: MultiWorld, player: int, region_name: str, re
             for kong in range(5):
                 blueprint_obj = DK64RItem.ItemList[Items.DonkeyBlueprint + kong]
                 location_name = "Turn In " + blueprint_obj.name
-                loc_id = all_locations.get(location_name, 0)
+                loc_id = all_locations_dynamic.get(location_name, 0)
                 location = DK64Location(player, location_name, loc_id, new_region)
                 set_rule(location, lambda state, blueprint_name=blueprint_obj.name: state.has(blueprint_name, player))
                 location.place_locked_item(DK64Item(blueprint_obj.name, ItemClassification.progression_skip_balancing, None, player))
                 new_region.locations.append(location)
     # The one special child here is Cranky Generic, home of Jetpac, the only shop location with any relevant logic
     elif region_name == "Cranky Generic":
-        location = DK64Location(player, "Jetpac", all_locations.get("Jetpac", 0), new_region)
+        location = DK64Location(player, "Jetpac", all_locations_dynamic.get("Jetpac", 0), new_region)
         set_rule(location, lambda state, player=player, location_logic=location_logics[0]: hasDK64RLocation(state, player, location_logic))
         new_region.locations.append(location)
         settings.location_pool_size += 1
@@ -530,7 +540,7 @@ def create_shop_region(multiworld: MultiWorld, player: int, region_name: str, re
             location_obj = DK64RLocation.LocationListOriginal[location_logic.id]
             if location_obj.kong == Kongs.any:
                 continue  # We need to eliminate shared shop locations so shops don't have both a shared item and Kong items
-            loc_id = all_locations.get(location_obj.name, 0)
+            loc_id = all_locations_dynamic.get(location_obj.name, 0)
             location = DK64Location(player, location_obj.name, loc_id, new_region)
             required_kong_name = location_obj.kong.name.title()
             set_rule(location, lambda state, required_kong_name=required_kong_name: state.has(required_kong_name, player))

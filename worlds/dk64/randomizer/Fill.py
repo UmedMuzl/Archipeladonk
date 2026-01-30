@@ -4120,8 +4120,13 @@ def ShuffleMisc(spoiler: Spoiler) -> None:
     ):
         spoiler.shuffled_barrel_data = BarrelShuffle(spoiler.settings)
     # CB Shuffle
-    if spoiler.settings.cb_rando_enabled:
+    # Disabled in Archipelago due to instability - TODO: implement deterministic placement
+    if spoiler.settings.cb_rando_enabled and not spoiler.settings.archipelago:
         ShuffleCBs(spoiler)
+    elif spoiler.settings.archipelago:
+        # For Archipelago, set a dummy entry so medal locations work with vanilla CBs
+        # This prevents the VerifyWorld check from filtering out medal locations
+        spoiler.cb_placements = [{"dummy": True}]
     # Coin Shuffle
     spoiler.coin_placements = []
     spoiler.race_coin_placements = []
@@ -4132,7 +4137,7 @@ def ShuffleMisc(spoiler: Spoiler) -> None:
     if spoiler.settings.race_coin_rando:
         shuffleRaceCoins(spoiler)
     # Random Patches
-    if spoiler.settings.random_patches:
+    if spoiler.settings.random_patches and not hasattr(spoiler, 'human_patches'):
         human_patches = {}
         spoiler.human_patches = ShufflePatches(spoiler, human_patches).copy()
     if spoiler.settings.random_fairies:
@@ -4140,7 +4145,7 @@ def ShuffleMisc(spoiler: Spoiler) -> None:
     if spoiler.settings.shuffle_shops:
         ShuffleShopLocations(spoiler)
     # Crate Shuffle
-    if spoiler.settings.random_crates:
+    if spoiler.settings.random_crates and not hasattr(spoiler, 'human_crates'):
         human_crates = {}
         spoiler.human_crates = ShuffleMelonCrates(spoiler, human_crates).copy()
     # Populate location references

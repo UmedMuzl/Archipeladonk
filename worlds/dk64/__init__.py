@@ -1093,7 +1093,53 @@ if baseclasses_loaded:
             self.spoiler.LocationList[DK64RLocations.FactoryDonkeyDKArcade].name = "Factory Donkey DK Arcade Round 1"
             self.spoiler.settings.shuffled_location_types.append(Types.ArchipelagoItem)
 
+            # Handle custom location shuffling BEFORE regions are created
+            # This needs to happen early so the logic system knows about the new locations
+            from randomizer.Lists.CustomLocations import resetCustomLocations
+            from randomizer.ShuffleCrowns import ShuffleCrowns
+            from randomizer.ShuffleCrates import ShuffleMelonCrates
+            from randomizer.ShufflePatches import ShufflePatches
+            
+            resetCustomLocations(self.spoiler)
+            
+            # Store custom location flags
+            do_crown_shuffle = self.spoiler.settings.crown_placement_rando
+            do_patch_shuffle = self.spoiler.settings.random_patches
+            do_crate_shuffle = self.spoiler.settings.random_crates
+            
+            # Note: CB rando is disabled in Archipelago (checked in ShuffleMisc)
+            # The algorithm is too unstable for reliable seed generation
+            if self.spoiler.settings.cb_rando_enabled:
+                import logging
+                logging.warning("CB Randomizer is disabled in Archipelago - CBs will use vanilla placement")
+            
+            # Temporarily disable custom locations so Generate_Spoiler doesn't run them
+            self.spoiler.settings.crown_placement_rando = False
+            self.spoiler.settings.random_patches = False
+            self.spoiler.settings.random_crates = False
+            
             Generate_Spoiler(self.spoiler)
+            
+            # Restore settings
+            self.spoiler.settings.crown_placement_rando = do_crown_shuffle
+            self.spoiler.settings.random_patches = do_patch_shuffle  
+            self.spoiler.settings.random_crates = do_crate_shuffle
+            
+            # Now run custom location shuffles
+            if do_crown_shuffle:
+                crown_replacements = {}
+                crown_human_replacements = {}
+                ShuffleCrowns(self.spoiler, crown_replacements, crown_human_replacements)
+                self.spoiler.crown_locations = crown_replacements
+                self.spoiler.human_crowns = dict(sorted(crown_human_replacements.items()))
+            
+            if do_patch_shuffle:
+                human_patches = {}
+                self.spoiler.human_patches = ShufflePatches(self.spoiler, human_patches).copy()
+            
+            if do_crate_shuffle:
+                human_crates = {}
+                self.spoiler.human_crates = ShuffleMelonCrates(self.spoiler, human_crates).copy()
 
             # Store/retrieve blocker values for seed group synchronization
             if self.options.loading_zone_rando.value not in [0, LoadingZoneRando.option_no]:
