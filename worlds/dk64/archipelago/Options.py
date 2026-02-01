@@ -411,33 +411,6 @@ class SwitchSanity(Choice):
     default = 0
 
 
-class CrownPlacementRando(Toggle):
-    """Randomizes the locations of Battle Arena crown pads to alternate positions throughout the levels."""
-
-    display_name = "Crown Placement Randomization"
-
-
-class RandomCrates(Toggle):
-    """Randomizes the locations of Melon Crates to alternate positions throughout the levels."""
-
-    display_name = "Random Melon Crates"
-
-
-class RandomPatches(Toggle):
-    """Randomizes the locations of Dirt Patches (Rainbow Coins) to alternate positions throughout the levels."""
-
-    display_name = "Random Dirt Patches"
-
-
-class CBRando(Toggle):
-    """Randomizes the locations of Colored Bananas throughout the levels.
-    
-    This does NOT make individual bananas checks - they remain collectibles that count toward medals.
-    """
-
-    display_name = "Colored Banana Randomization"
-
-
 class LogicType(Choice):
     """Determines what type of logic is needed to beat the seed.
 
@@ -1493,10 +1466,6 @@ class DK64Options(PerGameCommonOptions):
     level_blockers: LevelBlockers
     open_lobbies: OpenLobbies
     switchsanity: SwitchSanity
-    crown_placement_rando: CrownPlacementRando
-    random_crates: RandomCrates
-    random_patches: RandomPatches
-    cb_rando_enabled: CBRando
     climbing_shuffle: ClimbingShuffle
     starting_kong_count: StartingKongCount
     starting_move_count: StartingMoveCount
@@ -1630,15 +1599,6 @@ dk64_option_groups: List[OptionGroup] = [
             GalleonWaterLevel,
             RandomStartingLocation,
             DKPortalLocationRando,
-        ],
-    ),
-    OptionGroup(
-        "Custom Locations",
-        [
-            CrownPlacementRando,
-            RandomCrates,
-            RandomPatches,
-            CBRando,
         ],
     ),
     OptionGroup(
