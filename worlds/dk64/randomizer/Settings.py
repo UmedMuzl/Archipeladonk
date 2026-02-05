@@ -500,8 +500,8 @@ class Settings:
         self.free_trade_setting = False
 
         # Minigames
-        self.arcade_custom_minigame = "hexagon"
-        self.jetpac_custom_minigame = "hexagon"
+        self.arcade_custom_minigame = "arkanoid"
+        self.jetpac_custom_minigame = "arkanoid"
 
     def set_seed(self):
         """Forcibly re-set the random seed to the seed set in the config."""
@@ -1530,6 +1530,8 @@ class Settings:
         trap_limit = self.ice_trap_count
         if self.archipelago:
             trap_limit = 0
+        elif trap_limit > 0 and ItemRandoFiller.icetraps not in self.filler_items_selected:
+            self.filler_items_selected.append(ItemRandoFiller.icetraps)
         for _ in range(trap_limit):
             chosen_effect = self.random.choices(list(effects.keys()), list(effects.values()), k=1)[0]
             chosen_model = self.random.choices(list(models_chance.keys()), list(models_chance.values()), k=1)[0]
