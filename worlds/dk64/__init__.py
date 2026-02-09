@@ -922,6 +922,203 @@ if baseclasses_loaded:
             for name in sample_names:
                 print(name)
 
+        def _restore_shuffled_custom_locations(self):
+            """Restore shuffled custom locations from slot_data during UT regeneration.
+            
+            Must be called AFTER create_regions to override default custom location placements.
+            """
+            passthrough = self.multiworld.re_gen_passthrough["Donkey Kong 64"]
+            
+            # Get shuffle flags from spoiler settings (set during generate_early)
+            do_crown_shuffle = self.spoiler.settings.crown_placement_rando
+            do_patch_shuffle = self.spoiler.settings.random_patches
+            do_crate_shuffle = self.spoiler.settings.random_crates
+            
+            print(f"[DK64 UT] Restoring shuffled custom locations in create_regions")
+            print(f"[DK64 UT] Shuffle flags - Crowns: {do_crown_shuffle}, Patches: {do_patch_shuffle}, Crates: {do_crate_shuffle}")
+            
+            from randomizer.Enums.Levels import Levels
+            from randomizer.Enums.Locations import Locations
+            from randomizer.Lists.CustomLocations import CustomLocations
+            from randomizer.LogicClasses import LocationLogic
+            
+            # For shuffled custom locations, the logic is simple: lambda _: True
+            # The region's own accessibility logic determines if the location is reachable
+            def create_location_logic():
+                """Create a simple logic function for shuffled custom locations.
+                
+                Shuffled custom locations don't need special logic - being placed in a region means
+                the region's accessibility logic automatically determines if the location is reachable.
+                """
+                return lambda _: True
+            
+            # Restore crown shuffles
+            if do_crown_shuffle and passthrough.get("CrownShuffleData"):
+                crown_human_data = passthrough["CrownShuffleData"]
+                crown_locations = (
+                    Locations.JapesBattleArena,
+                    Locations.AztecBattleArena,
+                    Locations.FactoryBattleArena,
+                    Locations.GalleonBattleArena,
+                    Locations.ForestBattleArena,
+                    Locations.CavesBattleArena,
+                    Locations.CastleBattleArena,
+                    Locations.IslesBattleArena2,
+                    Locations.IslesBattleArena1,
+                    Locations.HelmBattleArena,
+                )
+                
+                # Remove crowns from all regions
+                for region in self.spoiler.RegionList.values():
+                    region.locations = [loc for loc in region.locations if loc.id not in crown_locations]
+                
+                # Restore crowns to their shuffled positions
+                global_crown_idx = 0
+                total_crowns = sum(len(crown_list) for crown_list in crown_human_data.values())
+                print(f"[DK64 UT] Restoring {total_crowns} battle arenas")
+                for level_name, crown_list in crown_human_data.items():
+                    level = Levels[level_name]
+                    for crown_data in crown_list:
+                        # crown_data is now a dict with "name" and "region"
+                        crown_name = crown_data["name"] if isinstance(crown_data, dict) else crown_data
+                        region_name = crown_data["region"] if isinstance(crown_data, dict) else None
+                        
+                        crown_obj = None
+                        for custom_loc in CustomLocations[level]:
+                            if custom_loc.name == crown_name:
+                                crown_obj = custom_loc
+                                break
+                        
+                        if crown_obj is None:
+                            print(f"[DK64 UT] WARNING: Could not find crown '{crown_name}' in level {level_name}")
+                            continue
+                        
+                        crown_obj.setCustomLocation(True)
+                        location_enum = crown_locations[global_crown_idx]
+                        
+                        # Use region from slot_data if available, otherwise fall back to CustomLocation's region
+                        if region_name:
+                            from randomizer.Enums.Regions import Regions
+                            target_region = Regions[region_name]
+                        else:
+                            target_region = crown_obj.logic_region
+                        
+                        crownRegion = self.spoiler.RegionList[target_region]
+                        # Use simple logic - region accessibility handles the rest
+                        logic_func = create_location_logic()
+                        crownRegion.locations.append(LocationLogic(location_enum, logic_func))
+                        print(f"[DK64 UT] Restored crown {global_crown_idx}: {crown_name} to region {target_region.name}")
+                        global_crown_idx += 1
+                
+                self.spoiler.human_crowns = crown_human_data
+            
+            # Restore patch shuffles
+            if do_patch_shuffle and passthrough.get("PatchShuffleData"):
+                patch_data = passthrough["PatchShuffleData"]
+                print(f"[DK64 UT] Restoring {len(patch_data)} dirt patches")
+                
+                # Remove patches from all regions
+                dirt_range = range(Locations.RainbowCoin_Location00, Locations.RainbowCoin_Location15 + 1)
+                for region in self.spoiler.RegionList.values():
+                    region.locations = [loc for loc in region.locations if loc.id not in dirt_range]
+                
+                # Restore patches to their shuffled positions
+                for patch_idx, patch_info in enumerate(patch_data):
+                    level = Levels[patch_info["level"]]
+                    patch_name = patch_info["name"]
+                    region_name = patch_info.get("region")  # New: get region from slot_data
+                    location_enum = Locations.RainbowCoin_Location00 + patch_idx
+                    
+                    for custom_loc in CustomLocations[level]:
+                        if custom_loc.name == patch_name:
+                            custom_loc.setCustomLocation(True)
+                            
+                            # Use region from slot_data if available, otherwise fall back to CustomLocation's region
+                            if region_name:
+                                from randomizer.Enums.Regions import Regions
+                                target_region = Regions[region_name]
+                            else:
+                                target_region = custom_loc.logic_region
+                            
+                            patchRegion = self.spoiler.RegionList[target_region]
+                            # Use simple logic - region accessibility handles the rest
+                            logic_func = create_location_logic()
+                            patchRegion.locations.append(LocationLogic(location_enum, logic_func))
+                            print(f"[DK64 UT] Restored patch {patch_idx}: {patch_name} to region {target_region.name}")
+                            break
+                
+                human_patches = {}
+                for patch_info in patch_data:
+                    level_name = patch_info["level"]
+                    if level_name not in human_patches:
+                        human_patches[level_name] = []
+                    human_patches[level_name].append(patch_info["name"])
+                self.spoiler.human_patches = human_patches
+            
+            # Restore crate shuffles
+            if do_crate_shuffle and passthrough.get("CrateShuffleData"):
+                crate_data = passthrough["CrateShuffleData"]
+                print(f"[DK64 UT] Restoring {len(crate_data)} melon crates")
+                
+                # Debug: Show where crates are BEFORE removal
+                crate_range = range(Locations.MelonCrate_Location00, Locations.MelonCrate_Location12 + 1)
+                print(f"[DK64 UT] Crates in regions BEFORE removal:")
+                for region_name, region in self.spoiler.RegionList.items():
+                    crate_locs = [loc.id for loc in region.locations if loc.id in crate_range]
+                    if crate_locs:
+                        print(f"  Region {region_name.name}: crates {crate_locs}")
+                
+                # Remove crates from all regions
+                for region in self.spoiler.RegionList.values():
+                    region.locations = [loc for loc in region.locations if loc.id not in crate_range]
+                
+                print(f"[DK64 UT] Crates in regions AFTER removal (should be none):")
+                for region_name, region in self.spoiler.RegionList.items():
+                    crate_locs = [loc.id for loc in region.locations if loc.id in crate_range]
+                    if crate_locs:
+                        print(f"  Region {region_name.name}: crates {crate_locs}")
+                
+                # Restore crates to their shuffled positions
+                for crate_idx, crate_info in enumerate(crate_data):
+                    level = Levels[crate_info["level"]]
+                    crate_name = crate_info["name"]
+                    region_name = crate_info.get("region")  # New: get region from slot_data
+                    location_enum = Locations.MelonCrate_Location00 + crate_idx
+                    
+                    found = False
+                    for custom_loc in CustomLocations[level]:
+                        if custom_loc.name == crate_name:
+                            custom_loc.setCustomLocation(True)
+                            
+                            # Use region from slot_data if available, otherwise fall back to CustomLocation's region
+                            if region_name:
+                                from randomizer.Enums.Regions import Regions
+                                target_region = Regions[region_name]
+                            else:
+                                target_region = custom_loc.logic_region
+                            
+                            crateRegion = self.spoiler.RegionList[target_region]
+                            # Use simple logic - region accessibility handles the rest
+                            logic_func = create_location_logic()
+                            crateRegion.locations.append(LocationLogic(location_enum, logic_func))
+                            print(f"[DK64 UT] Restored crate {crate_idx}: {crate_name} to region {target_region.name}")
+                            found = True
+                            break
+                    if not found:
+                        print(f"[DK64 UT] WARNING: Could not find custom location for crate {crate_name} in level {level.name}")
+                
+                human_crates = {}
+                for crate_info in crate_data:
+                    level_name = crate_info["level"]
+                    if level_name not in human_crates:
+                        human_crates[level_name] = []
+                    human_crates[level_name].append(crate_info["name"])
+                self.spoiler.human_crates = human_crates
+            
+            # CRITICAL: Reset region access after modifying locations to ensure proper logic calculation
+            print("[DK64 UT] Resetting region access after custom location restoration")
+            self.spoiler.ResetRegionAccess()
+
         def _generate_archipelago_prices(self):
             """Generate custom shop prices for Archipelago.
 
@@ -1156,13 +1353,15 @@ if baseclasses_loaded:
 
             resetCustomLocations(self.spoiler)
 
-            # Check if this is a UT regeneration
-            is_ut_regen = hasattr(settings, "ut_custom_location_names")
+            # Check if this is a UT regeneration - use generation_is_fake flag
+            is_ut_regen = hasattr(self.multiworld, "generation_is_fake")
+            print(f"[DK64] Is UT regen: {is_ut_regen}, has generation_is_fake: {hasattr(self.multiworld, 'generation_is_fake')}")
             
             # Store custom location flags
             do_crown_shuffle = self.spoiler.settings.crown_placement_rando
             do_patch_shuffle = self.spoiler.settings.random_patches
             do_crate_shuffle = self.spoiler.settings.random_crates
+            print(f"[DK64] Shuffle flags - Crowns: {do_crown_shuffle}, Patches: {do_patch_shuffle}, Crates: {do_crate_shuffle}")
 
             # Temporarily disable custom locations so Generate_Spoiler doesn't run them
             self.spoiler.settings.crown_placement_rando = False
@@ -1175,8 +1374,7 @@ if baseclasses_loaded:
             self.spoiler.settings.crown_placement_rando = do_crown_shuffle
             self.spoiler.settings.random_patches = do_patch_shuffle
             self.spoiler.settings.random_crates = do_crate_shuffle
-
-            # For UT regeneration, skip custom location shuffles (will restore from passthrough later)
+            
             if not is_ut_regen:
                 # Normal generation - run custom location shuffles
                 if do_crown_shuffle:
@@ -1185,14 +1383,17 @@ if baseclasses_loaded:
                     ShuffleCrowns(self.spoiler, crown_replacements, crown_human_replacements)
                     self.spoiler.crown_locations = crown_replacements
                     self.spoiler.human_crowns = dict(sorted(crown_human_replacements.items()))
+                    print(f"[DK64] Shuffled {len([c for crowns in crown_replacements.values() for c in crowns])} battle arenas")
 
                 if do_patch_shuffle:
                     human_patches = {}
                     self.spoiler.human_patches = ShufflePatches(self.spoiler, human_patches).copy()
+                    print(f"[DK64] Shuffled {len(self.spoiler.dirt_patch_placement)} dirt patches")
 
                 if do_crate_shuffle:
                     human_crates = {}
                     self.spoiler.human_crates = ShuffleMelonCrates(self.spoiler, human_crates).copy()
+                    print(f"[DK64] Shuffled {len(self.spoiler.meloncrate_placement)} melon crates")
 
             # Store/retrieve blocker values for seed group synchronization
             if self.options.loading_zone_rando.value not in [0, LoadingZoneRando.option_no]:
@@ -1345,6 +1546,8 @@ if baseclasses_loaded:
                 if hasattr(self.multiworld, "re_gen_passthrough"):
                     if "Donkey Kong 64" in self.multiworld.re_gen_passthrough:
                         passthrough = self.multiworld.re_gen_passthrough["Donkey Kong 64"]
+                        
+                        # Restore enemy, minigame, shop, and portal data
                         if passthrough["EnemyData"]:
                             for location, data in passthrough["EnemyData"].items():
                                 self.spoiler.enemy_location_list[DK64RLocations[location]] = EnemyLoc(Maps[data["map"]], Enemies[data["enemy"]], 0, [], False)
@@ -1368,6 +1571,61 @@ if baseclasses_loaded:
                         if passthrough.get("DKPortalLocations") and passthrough["DKPortalLocations"]:
                             # Restore DK Portal locations
                             self.spoiler.human_entry_doors = passthrough["DKPortalLocations"]
+                            
+                            # Update entry handler region exits to point to the restored DK Portal locations
+                            # This matches the behavior in DoorData.assignDKPortal()
+                            from randomizer.Enums.Levels import Levels
+                            from randomizer.Lists.DoorLocations import door_locations, LEVEL_ENTRY_HANDLER_REGIONS
+                            from randomizer.LogicClasses import TransitionFront
+                            
+                            level_name_to_enum = {
+                                "Jungle Japes": Levels.JungleJapes,
+                                "Angry Aztec": Levels.AngryAztec,
+                                "Frantic Factory": Levels.FranticFactory,
+                                "Gloomy Galleon": Levels.GloomyGalleon,
+                                "Fungi Forest": Levels.FungiForest,
+                                "Crystal Caves": Levels.CrystalCaves,
+                                "Creepy Castle": Levels.CreepyCastle,
+                            }
+                            
+                            for level_name, door_name in self.spoiler.human_entry_doors.items():
+                                if door_name != "Vanilla":
+                                    level_enum = level_name_to_enum.get(level_name)
+                                    if level_enum is not None:
+                                        # Find the door with this name in the door_locations list
+                                        for door_data in door_locations[level_enum]:
+                                            if door_data.name == door_name:
+                                                # Update the entry handler region's exit to point to this door's logic region
+                                                placement_region = LEVEL_ENTRY_HANDLER_REGIONS[level_enum]
+                                                self.spoiler.RegionList[placement_region].exits[1] = TransitionFront(
+                                                    door_data.logicregion, lambda _: True
+                                                )
+                                                break
+                        
+                        # Restore entrance randomization connections for yamlless generation
+                        if passthrough.get("EntranceRando") and passthrough["EntranceRando"]:
+                            # Store entrance connections for later restoration
+                            # These will be applied in connect_entrances when we detect yamlless generation
+                            self.saved_entrance_connections = passthrough["EntranceRando"]
+                        
+                        # Restore starting region for yamlless generation
+                        if passthrough.get("StartingRegion") and passthrough["StartingRegion"]:
+                            from randomizer.Enums.Regions import Regions
+                            from randomizer.Enums.Maps import Maps
+                            
+                            starting_region_data = passthrough["StartingRegion"]
+                            # Reconstruct the starting_region dictionary
+                            self.spoiler.settings.starting_region = {
+                                "region": Regions[starting_region_data["region"]],
+                                "map": Maps[starting_region_data["map"]],
+                                "exit": starting_region_data["exit"],
+                                "region_name": starting_region_data["region_name"],
+                                "exit_name": starting_region_data["exit_name"],
+                            }
+                            # Update GameStart region exits to point to the restored starting region
+                            # This matches the behavior in Settings.RandomizeStartingLocation()
+                            for x in range(2):
+                                self.spoiler.RegionList[Regions.GameStart].exits[x + 1].dest = self.spoiler.settings.starting_region["region"]
 
             # Handle hint preparation by initiating some variables
             self.hint_data = {
@@ -1408,6 +1666,12 @@ if baseclasses_loaded:
             # Exclude the locations using Archipelago's exclude_locations mechanism
             if excluded_locations:
                 exclude_locations(excluded_locations)
+            
+            # AFTER all regions are created, restore custom location shuffles for UT
+            # This must happen here (not in generate_early) to override default placements
+            if hasattr(self.multiworld, "generation_is_fake") and hasattr(self.multiworld, "re_gen_passthrough"):
+                if "Donkey Kong 64" in self.multiworld.re_gen_passthrough:
+                    self._restore_shuffled_custom_locations()
 
         def create_items(self) -> None:
             """Create the items."""
@@ -2008,6 +2272,18 @@ if baseclasses_loaded:
 
         def fill_slot_data(self) -> dict:
             """Fill the slot data."""
+            # Debug: Check if shuffle attributes exist
+            print(f"[DK64 fill_slot_data START] Checking spoiler attributes:")
+            print(f"  has crown_locations: {hasattr(self.spoiler, 'crown_locations')}")
+            print(f"  has dirt_patch_placement: {hasattr(self.spoiler, 'dirt_patch_placement')}")
+            print(f"  has meloncrate_placement: {hasattr(self.spoiler, 'meloncrate_placement')}")
+            if hasattr(self.spoiler, 'crown_locations'):
+                print(f"  crown_locations length: {len(self.spoiler.crown_locations) if self.spoiler.crown_locations else 0}")
+            if hasattr(self.spoiler, 'dirt_patch_placement'):
+                print(f"  dirt_patch_placement length: {len(self.spoiler.dirt_patch_placement) if self.spoiler.dirt_patch_placement else 0}")
+            if hasattr(self.spoiler, 'meloncrate_placement'):
+                print(f"  meloncrate_placement length: {len(self.spoiler.meloncrate_placement) if self.spoiler.meloncrate_placement else 0}")
+            
             # If hints are enabled, wait for hint compilation to complete
             if hasattr(self, "options") and self.options.hint_style > 0:
                 self.hint_compilation_complete.wait()
@@ -2146,17 +2422,119 @@ if baseclasses_loaded:
                 "DKPortalLocations": (self.spoiler.human_entry_doors if hasattr(self.spoiler, "human_entry_doors") and self.spoiler.human_entry_doors else {}),
                 "CustomLocationNames": self.get_custom_location_names(),
             }
-
-            # Debug logging for custom locations
-            custom_locs = slot_data.get("CustomLocationNames", {})
-            if custom_locs:
-                print(f"[DK64 Generation] Sending {len(custom_locs)} custom locations in slot_data")
-                for i, (loc_id, data) in enumerate(list(custom_locs.items())[:5]):
-                    if isinstance(data, dict):
-                        print(f"  Location {loc_id}: {data.get('name')} (flag: {data.get('flag')})")
-                    else:
-                        print(f"  Location {loc_id}: {data}")
-
+            
+            # Save custom location shuffle data for UT restoration
+            crown_shuffle_data = None
+            if hasattr(self.spoiler, "crown_locations") and self.spoiler.crown_locations and hasattr(self.spoiler, "human_crowns"):
+                try:
+                    from randomizer.Enums.Locations import Locations
+                    # Crown location IDs
+                    crown_location_ids = (
+                        Locations.JapesBattleArena,
+                        Locations.AztecBattleArena,
+                        Locations.FactoryBattleArena,
+                        Locations.GalleonBattleArena,
+                        Locations.ForestBattleArena,
+                        Locations.CavesBattleArena,
+                        Locations.CastleBattleArena,
+                        Locations.IslesBattleArena2,
+                        Locations.IslesBattleArena1,
+                        Locations.HelmBattleArena,
+                    )
+                    
+                    # Find which region each crown location is in
+                    crown_to_region = {}
+                    for region_enum, region in self.spoiler.RegionList.items():
+                        for loc in region.locations:
+                            if loc.id in crown_location_ids:
+                                crown_to_region[loc.id] = region_enum.name
+                    
+                    # Build crown_shuffle_data using human_crowns for names and RegionList for regions
+                    crown_shuffle_data = {}
+                    crown_idx = 0
+                    for level_key, location_name in self.spoiler.human_crowns.items():
+                        level_name = level_key.split(" (")[0]  # "DKIsles (1)" -> "DKIsles"
+                        if level_name not in crown_shuffle_data:
+                            crown_shuffle_data[level_name] = []
+                        
+                        crown_id = crown_location_ids[crown_idx]
+                        region_name = crown_to_region.get(crown_id, "Unknown")
+                        crown_shuffle_data[level_name].append({"name": location_name, "region": region_name})
+                        crown_idx += 1
+                    
+                    print(f"[DK64 fill_slot_data] Successfully created CrownShuffleData with {len(crown_shuffle_data)} levels, {sum(len(v) for v in crown_shuffle_data.values())} crowns")
+                    print(f"[DK64 fill_slot_data] Sample crown data: {list(crown_shuffle_data.items())[0] if crown_shuffle_data else 'empty'}")
+                except Exception as e:
+                    print(f"[DK64 fill_slot_data] Error creating CrownShuffleData: {e}")
+                    import traceback
+                    traceback.print_exc()
+            if crown_shuffle_data is not None:
+                slot_data["CrownShuffleData"] = crown_shuffle_data
+            
+            patch_shuffle_data = None
+            if hasattr(self.spoiler, "dirt_patch_placement") and self.spoiler.dirt_patch_placement:
+                try:
+                    from randomizer.Enums.Locations import Locations
+                    # Find which region each patch location is in
+                    patch_to_region = {}
+                    dirt_range = range(Locations.RainbowCoin_Location00, Locations.RainbowCoin_Location15 + 1)
+                    for region_enum, region in self.spoiler.RegionList.items():
+                        for loc in region.locations:
+                            if loc.id in dirt_range:
+                                patch_to_region[loc.id] = region_enum.name
+                    
+                    sorted_patches = sorted(self.spoiler.dirt_patch_placement, key=lambda d: d["score"])
+                    patch_shuffle_data = []
+                    for patch_idx, patch in enumerate(sorted_patches):
+                        patch_id = Locations.RainbowCoin_Location00 + patch_idx
+                        region_name = patch_to_region.get(patch_id, "Unknown")
+                        patch_shuffle_data.append({
+                            "level": patch["level"].name,
+                            "name": patch["name"],
+                            "region": region_name
+                        })
+                    
+                    print(f"[DK64 fill_slot_data] Successfully created PatchShuffleData with {len(patch_shuffle_data)} patches")
+                except Exception as e:
+                    print(f"[DK64 fill_slot_data] Error creating PatchShuffleData: {e}")
+                    traceback.print_exc()
+            if patch_shuffle_data is not None:
+                slot_data["PatchShuffleData"] = patch_shuffle_data
+            
+            crate_shuffle_data = None
+            if hasattr(self.spoiler, "meloncrate_placement") and self.spoiler.meloncrate_placement:
+                try:
+                    from randomizer.Enums.Locations import Locations
+                    # Find which region each crate location is in
+                    crate_to_region = {}
+                    crate_range = range(Locations.MelonCrate_Location00, Locations.MelonCrate_Location12 + 1)
+                    for region_enum, region in self.spoiler.RegionList.items():
+                        for loc in region.locations:
+                            if loc.id in crate_range:
+                                crate_to_region[loc.id] = region_enum.name
+                    
+                    sorted_crates = sorted(self.spoiler.meloncrate_placement, key=lambda d: d["score"])
+                    crate_shuffle_data = []
+                    for crate_idx, crate in enumerate(sorted_crates):
+                        crate_id = Locations.MelonCrate_Location00 + crate_idx
+                        region_name = crate_to_region.get(crate_id, "Unknown")
+                        crate_shuffle_data.append({
+                            "level": crate["level"].name,
+                            "name": crate["name"],
+                            "region": region_name
+                        })
+                    
+                    print(f"[DK64 fill_slot_data] Successfully created CrateShuffleData with {len(crate_shuffle_data)} crates")
+                except Exception as e:
+                    print(f"[DK64 fill_slot_data] Error creating CrateShuffleData: {e}")
+                    traceback.print_exc()
+            if crate_shuffle_data is not None:
+                slot_data["CrateShuffleData"] = crate_shuffle_data
+            
+            print(f"[DK64 fill_slot_data END] slot_data keys: {list(slot_data.keys())}")
+            print(f"[DK64 fill_slot_data END] Shuffle keys present: CrownShuffleData={('CrownShuffleData' in slot_data)}, PatchShuffleData={('PatchShuffleData' in slot_data)}, CrateShuffleData={('CrateShuffleData' in slot_data)}")
+            if "CrownShuffleData" in slot_data:
+                print(f"[DK64 fill_slot_data END] CrownShuffleData type: {type(slot_data['CrownShuffleData'])}, sample: {list(slot_data['CrownShuffleData'].items())[0] if slot_data['CrownShuffleData'] else None}")
             return slot_data
 
         def write_spoiler(self, spoiler_handle: typing.TextIO):
@@ -2433,8 +2811,6 @@ if baseclasses_loaded:
             """Parse slot data for any logical bits that need to match the real generation. Used by Universal Tracker."""
             # Parse the string data
             version = slot_data["Version"]
-            if version != self.ap_version:
-                print(f"Version mismatch: {version} != {self.ap_version}. You may experience unexpected behavior.")
 
             level_order = slot_data["LevelOrder"].split(", ")
             starting_kongs = slot_data["StartingKongs"].split(", ")
@@ -2525,6 +2901,11 @@ if baseclasses_loaded:
             
             # Custom location names for UT regeneration
             custom_location_names = slot_data.get("CustomLocationNames", {})
+            
+            # Custom location shuffle data for UT regeneration
+            crown_shuffle_data = slot_data.get("CrownShuffleData", None)
+            patch_shuffle_data = slot_data.get("PatchShuffleData", None)
+            crate_shuffle_data = slot_data.get("CrateShuffleData", None)
 
             relevant_data = {}
             relevant_data["LevelOrder"] = dict(enumerate([Levels[level] for level in level_order], start=1))
@@ -2579,4 +2960,10 @@ if baseclasses_loaded:
             relevant_data["StartingRegion"] = starting_region
             relevant_data["DKPortalLocations"] = dk_portal_locations
             relevant_data["CustomLocationNames"] = custom_location_names
+            if crown_shuffle_data is not None:
+                relevant_data["CrownShuffleData"] = crown_shuffle_data
+            if patch_shuffle_data is not None:
+                relevant_data["PatchShuffleData"] = patch_shuffle_data
+            if crate_shuffle_data is not None:
+                relevant_data["CrateShuffleData"] = crate_shuffle_data
             return relevant_data
