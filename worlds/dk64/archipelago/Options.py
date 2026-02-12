@@ -1465,6 +1465,15 @@ class DKPortalLocationRando(Choice):
     option_all = 2
     default = 0
 
+class FungiTimeOfDay(Toggle):
+    """If enabled, adds 2 new items to the pool that controls Forest Time of Day.
+    
+    If "Day" is collected, it will open all day gates.
+    If "Night" is collected, it will open all night gates.
+    Collecting both will mimic dusk time of day
+    """
+
+    display_name = "Fungi Time of Day"
 
 @dataclass
 class DK64Options(PerGameCommonOptions):
@@ -1568,6 +1577,7 @@ class DK64Options(PerGameCommonOptions):
     allowed_bosses: AllowedBosses
     random_starting_region: RandomStartingLocation
     dk_portal_location_rando: DKPortalLocationRando
+    fungi_time_of_day: FungiTimeOfDay
 
 
 dk64_option_groups: List[OptionGroup] = [
@@ -1659,6 +1669,7 @@ dk64_option_groups: List[OptionGroup] = [
             KrushaRandom,
             KrushaKongs,
             AllowedBosses,
+            FungiTimeOfDay,
         ],
     ),
     OptionGroup(
