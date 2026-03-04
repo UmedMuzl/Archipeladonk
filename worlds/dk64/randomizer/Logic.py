@@ -572,11 +572,13 @@ class LogicVarHolder:
         slam_req = default_requirement_level
         if self.settings.alter_switch_allocation:
             slam_req = self.settings.switch_allocation[level]
-        if slam_req == 2:
+        if slam_req == 1:
+            return self.Slam
+        elif slam_req == 2:
             return self.superSlam
         elif slam_req == 3:
             return self.superDuperSlam
-        return self.Slam
+        return True
 
     @lru_cache(maxsize=None)
     def IsLavaWater(self) -> bool:
@@ -675,7 +677,7 @@ class LogicVarHolder:
             if data.kong == Kongs.any:
                 return self.HasGun(Kongs.any) and self.HasInstrument(Kongs.any)
             return kong_data and gun_abilities[data.kong] and instrument_abilities[data.kong]
-        elif data.switch_type == SwitchType.PushableButton:
+        elif data.switch_type in (SwitchType.PushableButton, SwitchType.PunchGrate, SwitchType.IceWall, SwitchType.Gong):
             if data.kong == Kongs.diddy:
                 return kong_data and self.charge
             if data.kong == Kongs.chunky:
@@ -1475,8 +1477,12 @@ class LogicVarHolder:
         # A Blueprint buffer is not required after the fill is complete or if there can only be GBs here
         if self.assumeFillSuccess or Types.BlueprintBanana not in self.settings.shuffled_location_types or value > self.settings.most_snide_rewards:
             return self.BlueprintsWithKong >= value
-        bufferValue = ceil(value * 0.2)
-        return self.BlueprintsWithKong >= min(40, bufferValue + value)
+        # If we're still filling, we need to be a bit more advanced than purely having the Blueprints in hand
+        bufferValue = ceil(value * 0.2)  # A small buffer is designed to smooth out progression if the next big ticket item is on Snide
+        required_level_order = min(
+            7, ceil(value / 5)
+        )  # A level order requirement is imposed in SLO to prevent early keys being on late rewards. This is necessary for fill success due to progression being calculated after the fill.
+        return self.BlueprintsWithKong >= min(40, bufferValue + value) and self.HasFillRequirementsForLevel(self.settings.level_order[required_level_order])
 
     def HasAllItems(self):
         """Return if you have all progression items."""

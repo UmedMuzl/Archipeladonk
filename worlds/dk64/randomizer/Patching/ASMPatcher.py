@@ -5,7 +5,7 @@ import math
 import io
 import randomizer.ItemPool as ItemPool
 from typing import Union
-from randomizer.Patching.Library.Assets import getPointerLocation
+from randomizer.Patching.Library.Assets import getPointerLocation, getPointerFile
 from randomizer.Patching.Library.Generic import Overlay, IsItemSelected, TableNames, IsDDMSSelected
 from randomizer.Patching.Library.Image import getImageFile, TextureFormat
 from randomizer.Patching.Library.ItemRando import CustomActors
@@ -600,8 +600,107 @@ def loadBin(ROM_COPY: LocalROM, address: int, overlay: Overlay, bin_path: str, o
         file = io.BytesIO(bytes(data)).getvalue()
     ROM_COPY.writeBytes(file)
 
+LOBBIES = [
+    Maps.JungleJapesLobby,
+    Maps.AngryAztecLobby,
+    Maps.FranticFactoryLobby,
+    Maps.GloomyGalleonLobby,
+    Maps.FungiForestLobby,
+    Maps.CrystalCavesLobby,
+    Maps.CreepyCastleLobby,
+    Maps.HideoutHelmLobby,
+]
 
-def patchAssembly(ROM_COPY, spoiler):
+def precalcBoot(ROM_COPY: LocalROM, spoiler):
+    """Pre-calculate the elements of bootSpeedup."""
+    offset_dict = populateOverlayOffsets(ROM_COPY)
+    balloon_patch_count = 0
+    coloredBananaCounts = [0] * 8
+    balloonPatchCounts = [0] * 221
+    patch_index = 0
+    crate_index = 0
+    patch_flags = getSym("patch_flags")
+    crate_flags = getSym("crate_flags")
+    dyn_flag_items = [
+        0x00A,
+        0x00D,
+        0x016,
+        0x01C,
+        0x01D,
+        0x01E,
+        0x01F,
+        0x023,
+        0x024,
+        0x027,
+        0x02B,
+        0x205,
+        0x206,
+        0x207,
+        0x208,
+    ]
+    for map_index in range(221):
+        balloonPatchCounts[map_index] = balloon_patch_count
+        setup_file = getPointerFile(TableNames.Setups, map_index, False)
+        if setup_file.size > 0:
+            world = readValue(ROM_COPY, 0x807445E0 + map_index, Overlay.Static, offset_dict, 1)
+            if map_index in LOBBIES:
+                world = 7  # Isles
+            # Get parameters
+            ROM_COPY.seek(setup_file.start)
+            model_two_count = int.from_bytes(ROM_COPY.readBytes(4), "big")
+            model_two_start = setup_file.start + 4
+            ROM_COPY.seek(model_two_start + (model_two_count * 0x30))
+            mystery_count = int.from_bytes(ROM_COPY.readBytes(4), "big")
+            mystery_start = model_two_start + (model_two_count * 0x30) + 4
+            ROM_COPY.seek(mystery_start + (mystery_count * 0x24))
+            actor_count = int.from_bytes(ROM_COPY.readBytes(4), "big")
+            actor_start = mystery_start + (mystery_count * 0x24) + 4
+            for j in range(actor_count):
+                local_actor_start = actor_start + (0x38 * j)
+                ROM_COPY.seek(local_actor_start + 0x32)
+                actor_type = int.from_bytes(ROM_COPY.readBytes(2), "big") + 0x10
+                is_balloon = actor_type in [0x5B, 0x6F, 0x70, 0x71, 0x72]
+                if is_balloon:
+                    balloon_patch_count += 1
+                if actor_type == 139 and patch_index < 16:
+                    local_patch_flag = patch_flags + (4 * patch_index)
+                    ROM_COPY.seek(local_actor_start + 0x34)
+                    actor_id = int.from_bytes(ROM_COPY.readBytes(2), "big")
+                    writeValue(ROM_COPY, local_patch_flag + 0, Overlay.Custom, actor_id, offset_dict)
+                    writeValue(ROM_COPY, local_patch_flag + 2, Overlay.Custom, map_index, offset_dict, 1)
+                    writeValue(ROM_COPY, local_patch_flag + 3, Overlay.Custom, world, offset_dict, 1)
+                    patch_index += 1
+            for j in range(model_two_count):
+                local_m2_start = model_two_start + (j * 0x30)
+                ROM_COPY.seek(local_m2_start + 0x28)
+                m2_type = int.from_bytes(ROM_COPY.readBytes(2), "big")
+                is_dyn_flag_item = False
+                if m2_type in dyn_flag_items:
+                    is_dyn_flag_item = True
+                elif m2_type == 236 and world != 9 and spoiler.settings.race_coin_rando:
+                    is_dyn_flag_item = True
+                if is_dyn_flag_item and world < 8:
+                    coloredBananaCounts[world] += 1
+                if m2_type == 181 and crate_index < 16:  # Crate
+                    local_crate_flag = crate_flags + (4 * crate_index)
+                    ROM_COPY.seek(local_m2_start + 0x2A)
+                    m2_id = int.from_bytes(ROM_COPY.readBytes(2), "big")
+                    writeValue(ROM_COPY, local_crate_flag + 0, Overlay.Custom, m2_id, offset_dict)
+                    writeValue(ROM_COPY, local_crate_flag + 2, Overlay.Custom, map_index, offset_dict, 1)
+                    writeValue(ROM_COPY, local_crate_flag + 3, Overlay.Custom, world, offset_dict, 1)
+                    crate_index += 1
+    actor_cb_counts = getSym("actor_cb_counts")
+    for index, value in enumerate(balloonPatchCounts):
+        writeValue(ROM_COPY, actor_cb_counts + (2 * index), Overlay.Custom, value, offset_dict)
+    writeValue(ROM_COPY, 0x80688B6E, Overlay.Static, getHi(actor_cb_counts), offset_dict)
+    writeValue(ROM_COPY, 0x80688B72, Overlay.Static, getLo(actor_cb_counts), offset_dict)
+    m2_cb_coin_counts = getSym("m2_cb_coin_counts")
+    for index, value in enumerate(coloredBananaCounts):
+        writeValue(ROM_COPY, m2_cb_coin_counts + (2 * index), Overlay.Custom, value, offset_dict)
+    writeValue(ROM_COPY, 0x80631C2A, Overlay.Static, getHi(m2_cb_coin_counts), offset_dict)
+    writeValue(ROM_COPY, 0x80631C3A, Overlay.Static, getLo(m2_cb_coin_counts), offset_dict)
+
+def patchAssembly(ROM_COPY: LocalROM, spoiler):
     """Patch all assembly instructions."""
     patchVersionStack(ROM_COPY, spoiler.settings)
     offset_dict = populateOverlayOffsets(ROM_COPY)
@@ -625,6 +724,42 @@ def patchAssembly(ROM_COPY, spoiler):
     writeValue(ROM_COPY, 0x8068ABEE, Overlay.Static, getLoSym("replacement_lobbies_array"), offset_dict)
     writeValue(ROM_COPY, 0x8060005A, Overlay.Static, getHiSym("replacement_lobbies_array"), offset_dict)
     writeValue(ROM_COPY, 0x8060006E, Overlay.Static, getLoSym("replacement_lobbies_array"), offset_dict)
+
+    pause_screen_count = getEnum("PAUSESCREEN_TERMINATOR")
+    writeValue(ROM_COPY, 0x806A8672, Overlay.Static, pause_screen_count - 1, offset_dict)  # Screen decrease cap
+    writeValue(ROM_COPY, 0x806A8646, Overlay.Static, pause_screen_count, offset_dict)  # Screen increase cap
+
+    kong_model_setting_values = [
+        settings.kong_model_dk,
+        settings.kong_model_diddy,
+        settings.kong_model_lanky,
+        settings.kong_model_tiny,
+        settings.kong_model_chunky,
+    ]
+    name_mapping = {
+        KongModels.cranky: "cranky_name",
+        KongModels.funky: "funky_name",
+        KongModels.krool_cutscene: "krool_name",
+        KongModels.krool_fight: "krool_name",
+        KongModels.candy: "candy_name",
+        KongModels.robokrem: "robokrem_name",
+    }
+    index_mapping = {
+        KongModels.cranky: 8,
+        KongModels.funky: 10,
+        KongModels.krool_cutscene: 7,
+        KongModels.krool_fight: 7,
+        KongModels.candy: 9,
+        KongModels.robokrem: 11,
+    }
+    for kong_index, value in enumerate(kong_model_setting_values):
+        if value in (KongModels.cranky, KongModels.candy, KongModels.funky, KongModels.robokrem):
+            writeValue(ROM_COPY, 0x8075C410 + (kong_index * 0x10) + 0xC, Overlay.Static, 0, offset_dict, 4)
+            writeValue(ROM_COPY, 0x80619168, Overlay.Static, 0, offset_dict, 4)
+        if value in name_mapping:
+            writeLabelValue(ROM_COPY, 0x8074E780 + (4 * kong_index), Overlay.Static, name_mapping[value], offset_dict)
+        if value in index_mapping:
+            writeValue(ROM_COPY, 0x8074E85C + (4 * kong_index), Overlay.Static, index_mapping[value], offset_dict, 4)
 
     if settings.arcade_custom_minigame is not None:
         loadBin(ROM_COPY, 0x80024390, Overlay.Arcade, f"base-hack/minigame/{settings.arcade_custom_minigame}.bin", offset_dict)
@@ -1192,12 +1327,6 @@ def patchAssembly(ROM_COPY, spoiler):
 
     writeFunction(ROM_COPY, 0x806D9E08, Overlay.Static, "fixUpdraftBug", offset_dict)  # Updraft fix
 
-    if settings.perma_death:
-        writeValue(ROM_COPY, 0x8064EC00, Overlay.Static, 0x24020001, offset_dict, 4)
-        writeHook(ROM_COPY, 0x80682F2C, Overlay.Static, "permaLossTagCheck", offset_dict)
-        writeHook(ROM_COPY, 0x80683620, Overlay.Static, "permaLossTagSet", offset_dict)
-        writeHook(ROM_COPY, 0x806840C4, Overlay.Static, "permaLossTagDisplayCheck", offset_dict)
-
     if isFasterCheckEnabled(spoiler, FasterChecksSelected.factory_toy_monster_fight):
         writeValue(ROM_COPY, 0x806BBB22, Overlay.Static, 5, offset_dict)  # Chunky toy box speedup
         writeActorHealth(ROM_COPY, 228, 12)  # Change BHDM Health (16 -> 12)
@@ -1534,6 +1663,8 @@ def patchAssembly(ROM_COPY, spoiler):
     writeLabelValue(ROM_COPY, 0x80748014, Overlay.Static, "spawnWrinklyWrapper", offset_dict)  # Change function to include setFlag call
     updateActorFunctionInt(ROM_COPY, 212, 0x806AD54C)  # Set Gold Beaver as Blue Beaver Code
     writeLabelValue(ROM_COPY, 0x80748064, Overlay.Static, "change_object_scripts", offset_dict)  # Object Instance Scripts
+
+    writeValue(ROM_COPY, 0x8064A572, Overlay.Static, 0, offset_dict)  # Only allow 1 solution to Chunky face puzzle
 
     writeFunction(ROM_COPY, 0x806A8844, Overlay.Static, "helmTime_restart", offset_dict)  # Modify Function Call
     writeFunction(ROM_COPY, 0x806A89E8, Overlay.Static, "helmTime_exitBonus", offset_dict)  # Modify Function Call

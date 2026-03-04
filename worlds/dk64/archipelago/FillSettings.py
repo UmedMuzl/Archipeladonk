@@ -402,9 +402,6 @@ def handle_fake_generation_settings(settings: Settings, multiworld: MultiWorld) 
                     settings.shuffled_location_types.append(Types.Candy)
                     settings.shuffled_location_types.append(Types.Snide)
 
-                if passthrough.get("FungiTimeShuffled"):
-                    settings.shuffled_location_types.append(Types.FungiTime)
-
                 # Restore starting region
                 if passthrough.get("StartingRegion"):
                     from randomizer.Enums.Regions import Regions
@@ -537,8 +534,6 @@ def fillsettings(options: DK64Options, multiworld: MultiWorld, random_obj: Rando
         settings_dict["item_rando_list_1"].append(ItemRandoListSelected.halfmedal)
     if options.snide_turnins_to_pool.value:
         settings_dict["item_rando_list_1"].append(ItemRandoListSelected.blueprintbanana)
-    if options.fungi_time_of_day.value:
-        settings_dict["item_rando_list_1"].append(ItemRandoListSelected.fungitime)
 
     # Apply hard mode settings
     settings_dict["hard_mode_selected"] = []
@@ -648,6 +643,16 @@ def fillsettings(options: DK64Options, multiworld: MultiWorld, random_obj: Rando
                     "switchsanity_switch_fungi_yellow_tunnel": SwitchsanityKong.random,
                     "switchsanity_switch_fungi_green_tunnel_near": SwitchsanityKong.random,
                     "switchsanity_switch_fungi_green_tunnel_far": SwitchsanityKong.random,
+                    "switchsanity_switch_factory_dark_grate": SwitchsanityKong.random,
+                    "switchsanity_switch_factory_bonus_grate": SwitchsanityKong.random,
+                    "switchsanity_switch_factory_monster_grate": SwitchsanityKong.random,
+                    "switchsanity_switch_caves_gone_cave": SwitchsanityKong.random,
+                    "switchsanity_switch_caves_snide_cave": SwitchsanityKong.random,
+                    "switchsanity_switch_caves_boulder_cave": SwitchsanityKong.random,
+                    "switchsanity_switch_caves_lobby_blueprint": SwitchsanityKong.random,
+                    "switchsanity_switch_caves_lobby_lava": SwitchsanityKong.random,
+                    "switchsanity_switch_aztec_gong_tower": SwitchsanityKong.random,
+                    "switchsanity_switch_aztec_lobby_gong": SwitchsanityKong.random,
                 }
             )
         case SwitchSanity.option_helm_access:
@@ -678,6 +683,16 @@ def fillsettings(options: DK64Options, multiworld: MultiWorld, random_obj: Rando
                     "switchsanity_switch_fungi_yellow_tunnel": SwitchsanityKong.lanky,
                     "switchsanity_switch_fungi_green_tunnel_near": SwitchsanityKong.tiny,
                     "switchsanity_switch_fungi_green_tunnel_far": SwitchsanityKong.chunky,
+                    "switchsanity_switch_factory_dark_grate": SwitchsanityKong.chunky,
+                    "switchsanity_switch_factory_bonus_grate": SwitchsanityKong.chunky,
+                    "switchsanity_switch_factory_monster_grate": SwitchsanityKong.chunky,
+                    "switchsanity_switch_caves_gone_cave": SwitchsanityKong.chunky,
+                    "switchsanity_switch_caves_snide_cave": SwitchsanityKong.chunky,
+                    "switchsanity_switch_caves_boulder_cave": SwitchsanityKong.chunky,
+                    "switchsanity_switch_caves_lobby_blueprint": SwitchsanityKong.chunky,
+                    "switchsanity_switch_caves_lobby_lava": SwitchsanityKong.chunky,
+                    "switchsanity_switch_aztec_gong_tower": SwitchsanityKong.diddy,
+                    "switchsanity_switch_aztec_lobby_gong": SwitchsanityKong.diddy,
                 }
             )
         case SwitchSanity.option_off:

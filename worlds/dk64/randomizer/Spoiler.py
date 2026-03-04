@@ -836,6 +836,9 @@ class Spoiler:
                     SwitchType.PadMove: "Simian Spring Pad",
                     SwitchType.MiscActivator: "Gong",
                     SwitchType.PushableButton: "Charge Button",
+                    SwitchType.PunchGrate: "Charge Grate",
+                    SwitchType.IceWall: "Charge Wall",
+                    SwitchType.Gong: "Charge Gong",
                     SwitchType.GunInstrumentCombo: "Peanut Switch and Guitar Pad",
                 },
                 Kongs.lanky: {
@@ -858,6 +861,9 @@ class Spoiler:
                     SwitchType.InstrumentPad: "Triangle Pad",
                     SwitchType.PadMove: "Gorilla Gone Pad",
                     SwitchType.PushableButton: "Punch Button",
+                    SwitchType.PunchGrate: "Punch Grate",
+                    SwitchType.IceWall: "Punch Wall",
+                    SwitchType.Gong: "Punch Gong",
                     SwitchType.GunInstrumentCombo: "Pineapple Switch and Triangle Pad",
                 },
                 Kongs.any: {
@@ -1179,6 +1185,9 @@ class Spoiler:
             if self.settings.wrinkly_hints != WrinklyHints.off:
                 humanspoiler["Unhinted Score"] = self.unhinted_score
                 humanspoiler["Potentially Awful Locations"] = {}
+                humanspoiler["Potentially Awful Locations"][
+                    "HOW TO INTERPRET THIS"
+                ] = "A score of 1 or higher has a high probability of being unhinted. Anything under that is expected to have some indirect information."
                 for location_description in self.poor_scoring_locations:
                     humanspoiler["Potentially Awful Locations"][location_description] = self.poor_scoring_locations[location_description]
         self.json = json.dumps(humanspoiler, indent=4)

@@ -1,32 +1,31 @@
 """AP Item Packet mappings - converts items to giveItem parameters."""
 
 from typing import Dict, Any, Optional
-from randomizer.Patching.Library.Generic import ReqItems
 
-# Expose ReqItems enum values as constants for backward compatibility
-REQITEM_NONE = ReqItems.Null
-REQITEM_KONG = ReqItems.Kong
-REQITEM_MOVE = ReqItems.Move
-REQITEM_GOLDENBANANA = ReqItems.GoldenBanana
-REQITEM_BLUEPRINT = ReqItems.Blueprint
-REQITEM_FAIRY = ReqItems.Fairy
-REQITEM_KEY = ReqItems.Key
-REQITEM_CROWN = ReqItems.Crown
-REQITEM_COMPANYCOIN = ReqItems.CompanyCoin
-REQITEM_MEDAL = ReqItems.Medal
-REQITEM_BEAN = ReqItems.Bean
-REQITEM_PEARL = ReqItems.Pearl
-REQITEM_RAINBOWCOIN = ReqItems.RainbowCoin
-REQITEM_ICETRAP = ReqItems.IceTrap
-REQITEM_GAMEPERCENTAGE = ReqItems.GamePercentage
-REQITEM_COLOREDBANANA = ReqItems.ColoredBanana
-REQITEM_BOSSES = ReqItems.Bosses
-REQITEM_BONUSES = ReqItems.Bonuses
-REQITEM_JUNK = ReqItems.JunkItem
-REQITEM_HINT = ReqItems.Hint
-REQITEM_SHOPKEEPER = ReqItems.Shopkeeper
-REQITEM_AP = ReqItems.ArchipelagoItem
-REQITEM_RACECOIN = ReqItems.RaceCoin
+# requirement_item enum values from common_enums.h
+REQITEM_NONE = 0x00
+REQITEM_KONG = 0x01
+REQITEM_MOVE = 0x02
+REQITEM_GOLDENBANANA = 0x03
+REQITEM_BLUEPRINT = 0x04
+REQITEM_FAIRY = 0x05
+REQITEM_KEY = 0x06
+REQITEM_CROWN = 0x07
+REQITEM_COMPANYCOIN = 0x08
+REQITEM_MEDAL = 0x09
+REQITEM_BEAN = 0x0A
+REQITEM_PEARL = 0x0B
+REQITEM_RAINBOWCOIN = 0x0C
+REQITEM_ICETRAP = 0x0D
+REQITEM_GAMEPERCENTAGE = 0x0E
+REQITEM_COLOREDBANANA = 0x0F
+REQITEM_BOSSES = 0x10
+REQITEM_BONUSES = 0x11
+REQITEM_JUNK = 0x12
+REQITEM_HINT = 0x13
+REQITEM_SHOPKEEPER = 0x14
+REQITEM_AP = 0x15
+REQITEM_RACECOIN = 0x16
 
 # Config flag bitfield values
 CONFIG_DISPLAY_ITEM_TEXT = 0x01
