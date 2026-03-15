@@ -47,7 +47,6 @@ from randomizer.Enums.SwitchTypes import SwitchType
 from randomizer.Lists.Item import ItemList
 from randomizer.Lists.Location import PreGivenLocations, SharedShopLocations, TrainingBarrelLocations
 from randomizer.Lists.MapsAndExits import GetMapId
-from randomizer.Lists.PathHintTree import BuildPathHintTree
 from randomizer.Lists.ShufflableExit import ShufflableExits
 from randomizer.Lists.WrinklyHints import (
     GetRegionIdOfLocation,
@@ -443,7 +442,9 @@ def compileHints(spoiler: Spoiler) -> bool:
         # Sort the locations we plan on hinting by the number of doors they have available - this should roughly place hints in order of importance
         item_region_locations_to_hint.sort(key=lambda loc_id: (len(spoiler.accessible_hints_for_location[loc_id]) if loc_id in spoiler.accessible_hints_for_location.keys() else 10000))
         # If there's room, always hint a slam if we haven't hinted one already
-        hinted_slam_locations = [loc for loc in slam_locations if loc in item_region_locations_to_hint or spoiler.LocationList[loc].type in (Types.TrainingBarrel, Types.PreGivenMove, Types.Climbing, Types.Cannons)]
+        hinted_slam_locations = [
+            loc for loc in slam_locations if loc in item_region_locations_to_hint or spoiler.LocationList[loc].type in (Types.TrainingBarrel, Types.PreGivenMove, Types.Climbing, Types.Cannons)
+        ]
         if len(item_region_locations_to_hint) < hint_distribution[HintType.ItemHinting] and len(hinted_slam_locations) < 2:
             loc_to_hint = spoiler.settings.random.choice([loc for loc in slam_locations if loc not in hinted_slam_locations])
             item_region_locations_to_hint.append(loc_to_hint)

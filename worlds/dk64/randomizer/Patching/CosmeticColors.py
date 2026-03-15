@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import gzip
-from typing import TYPE_CHECKING, List, Tuple
+from typing import List, Tuple
 from io import BytesIO
 
 from PIL import Image, ImageDraw, ImageEnhance
@@ -13,7 +13,15 @@ from randomizer.Enums.Kongs import Kongs
 from randomizer.Enums.Settings import CharacterColors, ColorblindMode, KongModels, WinConditionComplex
 from randomizer.Enums.Maps import Maps
 from randomizer.Enums.Types import BarrierItems
-from randomizer.Patching.Cosmetics.CustomTextures import writeTransition, writeCustomPaintings, writeCustomPortal, writeCustomArcadeSprites, writeCustomReels, writeCustomItemSprites, writeCustomFacePuzzle
+from randomizer.Patching.Cosmetics.CustomTextures import (
+    writeTransition,
+    writeCustomPaintings,
+    writeCustomPortal,
+    writeCustomArcadeSprites,
+    writeCustomReels,
+    writeCustomItemSprites,
+    writeCustomFacePuzzle,
+)
 from randomizer.Patching.Cosmetics.Krusha import placeKrushaHead, fixBaboonBlasts, kong_index_mapping, fixModelSmallKongCollision
 from randomizer.Patching.Cosmetics.Colorblind import (
     recolorKlaptraps,
